@@ -14,6 +14,40 @@ function server_error($message = "Internal Server Error")
     echo "<body>\n</body>\n</html>";
 }
 
+function write_ini_file ($ini_array, $dst_file)
+{
+        $write_buf="";
+        if(is_array($ini_array))
+        {   
+                foreach($ini_array as $childKey => $childValue)
+                {   
+                        $write_buf .= ini_pair_to_str($childKey, $childValue);
+                }   
+        }
+        $fp=fopen($dst_file, 'w');
+        fwrite($fp, $write_buf);
+        fclose($fp);
+}
+function ini_pair_to_str ($ini_key, $ini_val)
+{
+        $ini_buf = $ini_key;
+        $ini_buf .= "=";
+        if (is_numeric($ini_val))
+        {   
+                $ini_buf .= $ini_val;
+        } else if (0 < strlen('' . $ini_val))
+        {   
+                $ini_buf .= '"' . $ini_val . '"';
+        }   
+        $ini_buf .= "\r\n";
+
+        return $ini_buf;
+}
+
+
+
+
+
 
 
 if(!file_exists($CONFIG_FILE))
@@ -49,11 +83,9 @@ if(!file_exists($CONFIG_FILE))
     $admin_password = gen_pwd(15);
     touch($CONFIG_FILE);
     chmod($CONFIG_FILE, 0740);
-    $fp = fopen($CONFIG_FILE, 'w');
-    fwrite($fp, "ADMIN_PWD=\"" . $admin_password . "\"\n");
-    fclose($fp);
+    $CONFIG_VAR = array( "ADMIN_PWD" => $admin_password);
+    write_ini_file($CONFIG_VAR, $CONFIG_FILE);
     unset($admin_password);
-    $CONFIG_VAR = parse_ini_file($CONFIG_FILE);
 } else
 {
     // config.ini exists
@@ -70,7 +102,32 @@ if(!file_exists($CONFIG_FILE))
 
 if(isset($_POST['pwd']) && $CONFIG_VAR['ADMIN_PWD'] === $_POST['pwd'])
 {
-    echo 'correct_password';
+    if(isset($_POST['setup_configuration']))
+    {
+        $CONFIG_VAR['DB_ADDR'] = $_POST['db_addr'];
+        $CONFIG_VAR['DB_PORT'] = $_POST['db_port'];
+        $CONFIG_VAR['DB_DB'] = $_POST['db_db'];
+        $CONFIG_VAR['DB_USER'] = $_POST['db_user'];
+        $CONFIG_VAR['DB_PWD'] = $_POST['db_pwd'];
+        $CONFIG_VAR['MUSIC_DIR_ROOT'] = $_POST['music_dir_root'];
+        $CONFIG_VAR['setup_complete'] = "true";
+        write_ini_file($CONFIG_VAR, $CONFIG_FILE);
+        echo "entered into config.ini!";
+    } else
+    {
+        echo "<style type=\"text/css\">\nlabel {\nwidth: 150px;\n}\n</style>\n";
+        echo "<form method=\"POST\" action=\"./\">\n";
+        echo "<input type=\"hidden\" name=\"pwd\" value=\"" . htmlspecialchars($_POST['pwd']) . "\"/>";
+        echo "<input type=\"hidden\" name=\"setup_configuration\" value=\"true\"/>";
+        echo "<label for=\"db_addr\">Database address:</label><input type=\"text\" id=\"db_addr\" name=\"db_addr\" size=\"25\"/><br/>\n";
+        echo "<label for=\"db_port\">Database port:</label><input type=\"text\" id=\"db_port\" name=\"db_port\" size=\"25\"/><br/>\n";
+        echo "<label for=\"db_db\">Database database:</label><input type=\"text\" id=\"db_db\" name=\"db_db\" size=\"25\"/><br/>\n";
+        echo "<label for=\"db_user\">Database user:</label><input type=\"text\" id=\"db_user\" name=\"db_user\" size=\"25\"/><br/>\n";
+        echo "<label for=\"db_pwd\">Database password:</label><input type=\"text\" id=\"db_pwd\" name=\"db_pwd\" size=\"25\"/><br/>\n";
+        echo "<label for=\"music_dir_root\">Music dir root:</label><input type=\"text\" id=\"music_dir_root\" name=\"music_dir_root\" size=\"25\"/><br/>\n";
+        echo "<input type=\"submit\" />";
+        echo "</form>\n";
+    }
 } else {
 ?>
 <!DOCTYPE html5>
@@ -91,17 +148,19 @@ function ajax_setup_authentication()
 }
 function ajax_process_authentication()
 {
-  console.log("response!");
-  alert(ajax.responseText);
+  console.log(ajax.responseText);
+  document.getElementById("main_wrapper").innerHTML = ajax.responseText;
 }
 </script>
 </head>
 <body>
+<div id="main_wrapper">
 <form method="POST" action="./" onsubmit="return ajax_setup_authentication();">
 <input type="text" name="user" size="10" value="juph_setup" />
 <input type="password" name="pwd" size="20" value="" />
 <input type="submit" />
 </form>
+</div>
 </body>
 </html>
 
