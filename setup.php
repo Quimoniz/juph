@@ -5,14 +5,6 @@
 //3. if password is correct and configuration options are given,
 //   then write out complete config.ini file, setup mysql-database
 
-function server_error($message = "Internal Server Error")
-{
-    header('HTTP/1.1 500 Server error');
-    echo "<!DOCTYPE html>\n<html>\n<head>\n<title>Server Error</title>\n</head>\n";
-    echo "<h1>Internal Server Error</h1>\n";
-    echo "<h1>" . htmlspecialchars($message) . "</h1>\n";
-    echo "<body>\n</body>\n</html>";
-}
 
 function write_ini_file ($ini_array, $dst_file)
 {
@@ -120,7 +112,7 @@ if(isset($_POST['pwd']) && $CONFIG_VAR['ADMIN_PWD'] === $_POST['pwd'])
         echo "<input type=\"hidden\" name=\"pwd\" value=\"" . htmlspecialchars($_POST['pwd']) . "\"/>";
         echo "<input type=\"hidden\" name=\"setup_configuration\" value=\"true\"/>";
         echo "<label for=\"db_addr\">Database address:</label><input type=\"text\" id=\"db_addr\" name=\"db_addr\" size=\"25\"/><br/>\n";
-        echo "<label for=\"db_port\">Database port:</label><input type=\"text\" id=\"db_port\" name=\"db_port\" size=\"25\"/><br/>\n";
+        echo "<label for=\"db_port\">Database port:</label><input type=\"text\" id=\"db_port\" name=\"db_port\" size=\"25\" value=\"3306\"/><br/>\n";
         echo "<label for=\"db_db\">Database database:</label><input type=\"text\" id=\"db_db\" name=\"db_db\" size=\"25\"/><br/>\n";
         echo "<label for=\"db_user\">Database user:</label><input type=\"text\" id=\"db_user\" name=\"db_user\" size=\"25\"/><br/>\n";
         echo "<label for=\"db_pwd\">Database password:</label><input type=\"text\" id=\"db_pwd\" name=\"db_pwd\" size=\"25\"/><br/>\n";
