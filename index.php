@@ -21,6 +21,7 @@ class MinimalisticFile {
     public function __construct($basedir, $filename)
     {
         $this->path = $basedir . $filename; 
+        $this->name = $filename;
         $this->size = filesize($this->path);
     }
 }
@@ -32,6 +33,21 @@ function server_error($message = "Internal Server Error")
     echo "<h1>Internal Server Error</h1>\n";
     echo "<div>" . htmlspecialchars($message) . "</div>\n";
     echo "<body>\n</body>\n</html>";
+}
+function flush_files_to_db($dbcon, $files_to_insert)
+{
+    global $cur_time;
+    if(!$dbcon || !is_array($files_to_insert))
+    {
+        return;
+    }
+    //TODO: combine sql queries, don't do a separate query for every single entry
+    foreach($files_to_insert as $cur_file)
+    {
+        $hashed_filename = md5($cur_file->path);
+        $escaped_filename = $dbcon->real_escape_string($cur_file->path);
+        @$dbcon->query('INSERT INTO `filecache` (`id`, `path_hash`, `path_str`, `last_scan`, `size`) VALUES(NULL, \'' . $hashed_filename . '\', \'' . $escaped_filename . '\', ' . $cur_time . ', ' . $cur_file->size . ') ON DUPLICATE KEY UPDATE `last_scan` = ' . $cur_time);
+    }
 }
 
 
@@ -101,14 +117,15 @@ if($need_create_table)
     $create_sql .= ') ENGINE=InnoDB; ';
     // TABLE `filecache`
     $create_sql .= 'CREATE TABLE IF NOT EXISTS `filecache` (';
-    $create_sql .= '`id` BIGINT NOT NULL AUTO_INCREMENT UNIQUE,';
-    $create_sql .= '`path` VARCHAR(1024) CHARACTER SET utf8 NOT NULL,';
+    $create_sql .= '`id` BIGINT NOT NULL AUTO_INCREMENT,';
+    $create_sql .= '`path_hash` CHAR(32) CHARACTER SET latin1 NOT NULL DEFAULT \'\' UNIQUE,';
+    $create_sql .= '`path_str` VARCHAR(1024) CHARACTER SET utf8 NOT NULL,';
     $create_sql .= '`last_scan` BIGINT NOT NULL,';
     $create_sql .= '`size` BIGINT NOT NULL,';
-    $create_sql .= '`valid` ENUM(\'Y\',\'N\') NOT NULL,';
+    $create_sql .= '`valid` ENUM(\'Y\',\'N\') NOT NULL DEFAULT \'Y\',';
     // maybe TODO for later: more fields e.g. hash, len
     $create_sql .= 'KEY(`id`),';
-    $create_sql .= 'INDEX(`path`)';
+    $create_sql .= 'INDEX(`path_hash`)';
     $create_sql .= ') ENGINE=InnoDB; ';
     // TABLE `playlists`
     $create_sql .= 'CREATE TABLE IF NOT EXISTS `playlists` (';
@@ -167,9 +184,9 @@ if($need_create_table)
 }
 
 //step 2a, lookup scans
-$result = @$dbcon->query('SELECT `time`,`completed` FROM TABLE `scans` ORDER BY `time` DESC LIMIT 1');
+$result = @$dbcon->query('SELECT `time`,`completed` FROM `scans` WHERE `completed`=\'Y\' ORDER BY `time` DESC LIMIT 1');
 $need_scan_music_dir = True;
-if(FALSE !== $result && 0 < $result->num_rows)
+if(!(FALSE === $result) && 0 < $result->num_rows)
 {
     $last_scan_row = $result->fetch_assoc();
     $last_scan_time = (int) $last_scan_row['time'];
@@ -187,9 +204,11 @@ if($need_scan_music_dir)
     $scan_complete = False;
     $scan_filecount = 0;
     $scan_errormessage='';
+    $i = 0; // total count of files
 
     if(is_dir($CONFIG_VAR['MUSIC_DIR_ROOT']))
     {
+        //scan algorithm
         $dir_handle = opendir($CONFIG_VAR['MUSIC_DIR_ROOT']);
         $dir_names = array();
         $dir_names[] = $CONFIG_VAR['MUSIC_DIR_ROOT'];
@@ -206,7 +225,6 @@ echo "Starting with MUSIC_DIR_ROOT loop<br/>\n";
             $cur_name = readdir($dir_handle);
             if(!(FALSE === $cur_name))
             {
-                // TODO: write scan algorithm
                 if(!('.' == $cur_name || '..' == $cur_name))
                 {
                     if(is_dir($cur_dirbase . $cur_name))
@@ -216,14 +234,15 @@ echo "Starting with MUSIC_DIR_ROOT loop<br/>\n";
                     {
                         $files_to_add[] = new MinimalisticFile($cur_dirbase, $cur_name);
                         $j++;
+                        $i++;
                     }
                     if($FILES_UNTIL_DB_FLUSH === $j)
                     {
-                        //TODO: Do db flush
+                        //Do db flush
                         //      either insert or update the respective entries in table `filecache`
                         //      best: use a mysql stored procedure for that, instead of doing checks in PHP
                         //      (1. check if already there 'SELECT', 2. if so do an 'UPDATE', 3 otherwise do 'INSERT')
-                        foreach($files_to_add as $curfile) { echo $curfile->path . "<br/>\n"; }
+                        flush_files_to_db($dbcon, $files_to_add);
                         //reset cached files in array
                         $files_to_add = array();
                         $j = 0;
@@ -261,18 +280,18 @@ echo "Starting with MUSIC_DIR_ROOT loop<br/>\n";
                 }
             }
         }
-        //TODO: do db flush from $files_to_add
-        foreach($files_to_add as $curfile) { echo $curfile->path . "<br/>\n"; }
+        //do db flush from $files_to_add
+        flush_files_to_db($dbcon, $files_to_add);
     } else
     {
         $scan_errormessage .= 'Configured MUSIC_DIR_ROOT "' . $CONFIG_VAR['MUSIC_DIR_ROOT'] . '" not accessible as a directory.';
     }
     
+    //TODO: invalidate all files in table filecache which do not have the timestamp of the current scan
+    @$dbcon->query('UPDATE `filecache` SET `valid`=\'N\' WHERE `last_scan`!=' . $cur_time);
+    //TODO: enter scan results into database (i.e. enter $cur_time, $scan_complete, $scan_filecount, $san_errormessage)
+    @$dbcon->query('INSERT INTO `scans` (`time`, `completed`, `error_message`, `files_scanned`) VALUES (' . $cur_time . ', \'' . (0 < strlen($scan_errormessage) ? 'N' : 'Y') . '\', \'' . $dbcon->real_escape_string($scan_errormessage) . '\', ' . $i . ')');
 }
-//TODO: invalidate all files in table filecache which do not have the timestamp of the current scan
-//TODO: enter scan results into database (i.e. enter $cur_time, $scan_complete, $scan_filecount, $san_errormessage)
-
-
 
 
 
