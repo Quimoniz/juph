@@ -1,8 +1,29 @@
 <?php
+/*
+ * Steps:
+ * 1a check if database exists
+ * 1b if not: create database/tables
+ * 2a check db for last scan
+ * 2b if last db check >= 1hour, then do filesystem/music dir scan
+ * 3a load last played playlist (but do not play yet)
+ * 3b load list of all playlists
+ * 4 present HTML5-Audio-Player
+ */
 $CONFIG_FILE = 'config.ini';
 $CONFIG_VAR = NULL;
 $do_setup = true;
+$cur_time = time();
 
+class MinimalisticFile {
+    public $path = '';
+    public $name = '';
+    public $size = 0;
+    public function __construct($basedir, $filename)
+    {
+        $this->path = $basedir . $filename; 
+        $this->size = filesize($this->path);
+    }
+}
 
 function server_error($message = "Internal Server Error")
 {
@@ -53,6 +74,7 @@ if($dbcon->connect_errno)
 $result = @$dbcon->query('SELECT `time` FROM `scans` ORDER BY `time` DESC LIMIT 1');
 $need_scan = true;
 $need_create_table = false;
+//step 1a, check for db
 if(FALSE === $result)
 {
     if(1146 == $dbcon->errno)
@@ -65,7 +87,7 @@ if(FALSE === $result)
         exit(0);
     }
 }
-
+//step 1b, table creation
 if($need_create_table)
 {
     $create_sql = '';
@@ -85,7 +107,8 @@ if($need_create_table)
     $create_sql .= '`size` BIGINT NOT NULL,';
     $create_sql .= '`valid` ENUM(\'Y\',\'N\') NOT NULL,';
     // maybe TODO for later: more fields e.g. hash, len
-    $create_sql .= 'KEY(`id`)';
+    $create_sql .= 'KEY(`id`),';
+    $create_sql .= 'INDEX(`path`)';
     $create_sql .= ') ENGINE=InnoDB; ';
     // TABLE `playlists`
     $create_sql .= 'CREATE TABLE IF NOT EXISTS `playlists` (';
@@ -137,9 +160,123 @@ if($need_create_table)
         $query_result = @$dbcon->query($table_sql);
         if(FALSE === $query_result)
         {
-            echo 'Error creating database (' . $dbcon->errno . '): ' . htmlspecialchars($dbcon->error) . '<br/>';
+            server_error('Error during creation of tables (errno: ' . $dbcon->errno . '): ' . htmlspecialchars($dbcon->error));
+            exit(0);
         }
     }
 }
+
+//step 2a, lookup scans
+$result = @$dbcon->query('SELECT `time`,`completed` FROM TABLE `scans` ORDER BY `time` DESC LIMIT 1');
+$need_scan_music_dir = True;
+if(FALSE !== $result && 0 < $result->num_rows)
+{
+    $last_scan_row = $result->fetch_assoc();
+    $last_scan_time = (int) $last_scan_row['time'];
+    $last_scan_completed = $last_scan_row['completed'];
+    if($last_scan_time >= ($cur_time - 3600) && 'Y' == $last_scan_completed)
+    {
+        $need_scan_music_dir = False;
+    }
+}
+
+//step 2b, do scan
+//TODO: test this section with detailed output of found files
+if($need_scan_music_dir)
+{
+    $scan_complete = False;
+    $scan_filecount = 0;
+    $scan_errormessage='';
+
+    if(is_dir($CONFIG_VAR['MUSIC_DIR_ROOT']))
+    {
+        $dir_handle = opendir($CONFIG_VAR['MUSIC_DIR_ROOT']);
+        $dir_names = array();
+        $dir_names[] = $CONFIG_VAR['MUSIC_DIR_ROOT'];
+        $cur_dirbase = $CONFIG_VAR['MUSIC_DIR_ROOT'] . '/';
+        $dircache = array();
+        $files_to_add = array();
+        $FILES_UNTIL_DB_FLUSH = 100;
+        $j = 0; // files in $files_to_add
+        $k = 0;
+        $dircache[] = array();
+echo "Starting with MUSIC_DIR_ROOT loop<br/>\n";
+        while(-1 < $k)
+        {
+            $cur_name = readdir($dir_handle);
+            if(!(FALSE === $cur_name))
+            {
+                // TODO: write scan algorithm
+                if(!('.' == $cur_name || '..' == $cur_name))
+                {
+                    if(is_dir($cur_dirbase . $cur_name))
+                    {
+                        $dircache[$k][] = $cur_name;
+                    } else // do not discern between regular files and links at this point
+                    {
+                        $files_to_add[] = new MinimalisticFile($cur_dirbase, $cur_name);
+                        $j++;
+                    }
+                    if($FILES_UNTIL_DB_FLUSH === $j)
+                    {
+                        //TODO: Do db flush
+                        //      either insert or update the respective entries in table `filecache`
+                        //      best: use a mysql stored procedure for that, instead of doing checks in PHP
+                        //      (1. check if already there 'SELECT', 2. if so do an 'UPDATE', 3 otherwise do 'INSERT')
+                        foreach($files_to_add as $curfile) { echo $curfile->path . "<br/>\n"; }
+                        //reset cached files in array
+                        $files_to_add = array();
+                        $j = 0;
+                    }
+                }
+            } else // finished scanning this directory
+            {
+                closedir($dir_handle);
+                $dir_handle = NULL;
+                //pick next directory for next call to readdir
+                while(is_null($dir_handle) && -1 < $k)
+                {
+                    if(0 < count($dircache[$k]))
+                    {
+                        //descend
+                        $descend_to_dir = array_shift($dircache[$k]);
+                        $dircache[] = array();
+                        $k++;
+                        $dir_names[] = $descend_to_dir;
+                        $cur_dirbase .= $descend_to_dir . '/';
+                        $dir_handle = opendir($cur_dirbase); 
+                    } else
+                    {
+                        //ascend, adjust $cur_dirbase and $dir_names
+                        $k--;
+                        if(-1 < $k)
+                        {
+                            //pop the deepest array from $dircache
+                            array_pop($dircache);
+                            array_pop($dir_names);
+                            $cur_dirbase = implode('/', $dir_names) . '/';
+                        }
+                    }
+                    //loop will end if k has been decremented to -1
+                }
+            }
+        }
+        //TODO: do db flush from $files_to_add
+        foreach($files_to_add as $curfile) { echo $curfile->path . "<br/>\n"; }
+    } else
+    {
+        $scan_errormessage .= 'Configured MUSIC_DIR_ROOT "' . $CONFIG_VAR['MUSIC_DIR_ROOT'] . '" not accessible as a directory.';
+    }
+    
+}
+//TODO: invalidate all files in table filecache which do not have the timestamp of the current scan
+//TODO: enter scan results into database (i.e. enter $cur_time, $scan_complete, $scan_filecount, $san_errormessage)
+
+
+
+
+
+
+
 echo 'all is well that ends well';
 ?>
