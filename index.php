@@ -3,6 +3,7 @@
  * Steps:
  * 1a check if database exists
  * 1b if not: create database/tables
+ * 1c handle ajax
  * 2a check db for last scan
  * 2b if last db check >= 1hour, then do filesystem/music dir scan
  * 3a load last played playlist (but do not play yet)
@@ -71,7 +72,13 @@ if( file_exists($CONFIG_FILE))
 }
 if( $do_setup)
 {
-    include('setup.php');
+    if(isset($_GET['ajax']))
+    {
+        server_error("Ajax unavailable");
+    } else
+    { 
+        include('setup.php');
+    }
     exit(0);
 }
 
@@ -193,7 +200,51 @@ if($need_create_table)
     }
 }
 
+//step 1c, handle ajax
+if(isset($_GET['ajax']))
+{
+    if($_GET['matching_tracks'])
+    {
+        $search_subject = $_GET['matching_tracks'];
+        if(3 > strlen($search_subject))
+        {
+            echo "error";
+        
+        } else
+        {
+            $search_subject = $dbcon->real_escape_string($search_subject);
+            $result_matches = @$dbcon->query('SELECT `path_str` FROM `filecache` WHERE `path_str` LIKE \'%' . $search_subject . '%\' ORDER BY `path_str` ASC LIMIT 100');
+            if(!(FALSE === $result_matches))
+            {
+                echo "{\n\"matches\": [";
+                $i = 0;
+                while($cur_row = $result_matches->fetch_assoc())
+                {
+                    if(0 < $i) echo ",\n";
+                    echo "{ \"name\": \"" . str_replace(array("\\", "\"","\n"), array("\\\\", "\\\"", "\\n"), $cur_row['path_str']) . "\"}";
+                    $i++;
+                }
+                echo "]\n}";
+            }
+        }
+    } else if($_GET['request_track'])
+    {
+        $target_file = $_GET['request_track'];
+        if(0 === strpos($target_file, $CONFIG_VAR['MUSIC_DIR_ROOT']) && FALSE === strpos($target_file, '/../'))
+        {
+            if(file_exists($target_file))
+            {
+                $target_data = file_get_contents($target_file);
+                header('Content-Type: audio/mp3');
+                echo $target_data;
+            }
+        }
+    }
+    exit(0);
+}
+
 //step 2a, lookup scans
+//TODO: why do we do this lookup twice? - reduce this to just one query
 $result = @$dbcon->query('SELECT `time`,`completed` FROM `scans` WHERE `completed`=\'Y\' ORDER BY `time` DESC LIMIT 1');
 $need_scan_music_dir = True;
 if(!(FALSE === $result) && 0 < $result->num_rows)
@@ -229,7 +280,6 @@ if($need_scan_music_dir)
         $j = 0; // files in $files_to_add
         $k = 0;
         $dircache[] = array();
-echo "Starting with MUSIC_DIR_ROOT loop<br/>\n";
         while(-1 < $k)
         {
             $cur_name = readdir($dir_handle);
@@ -304,12 +354,131 @@ echo "Starting with MUSIC_DIR_ROOT loop<br/>\n";
 }
 
 //step 3b, load all playlists
-/*
-$playlists_result = @$dbcon->query('SELECT `playlists`.`id`, `playlists`.`name`, `playlists`.`thumb_path`,`filecache`.`path_str` FROM `playlists` INNER JOIN `relation_playlists` ON `playlists`.`id`=`relation_playlists`.`pid` INNER JOIN `filecache` ON `relation_playlists`.`fid`=`filecache`.`id` ORDER BY `playlists`.`name` ASC, `relation_playlists`.`prank` ASC');
+$playlists_result = @$dbcon->query('SELECT `playlists`.`id` AS \'pid\', `playlists`.`name` AS \'pname\', `playlists`.`thumb_path` AS \'img_path\',`filecache`.`path_str`AS \'file_path\' FROM `playlists` INNER JOIN `relation_playlists` ON `playlists`.`id`=`relation_playlists`.`pid` INNER JOIN `filecache` ON `relation_playlists`.`fid`=`filecache`.`id` WHERE `filecache`.`valid`=\'Y\' ORDER BY `playlists`.`name` ASC, `relation_playlists`.`prank` ASC');
 if(!(FALSE === $playlists_result) && 0 < $playlists_result->num_rows)
 {
+    $loaded_playlists = array();
+    $prev_pid = -1;
+    $i = -1;
+    while($cur_row = $playlists_result->fetch_assoc())
+    {
+        $cur_pid = (int) $cur_row['pid'];
+        if($prev_pid != $cur_pid)
+        {
+            $i++;
+            $loaded_playlists[] = array();
+            $loaded_playlists[$i][] = $cur_row['pname'];
+            $loaded_playlists[$i][] = $cur_row['img_path'];
+            $loaded_playlists[$i][] = array();
+            $prev_pid = $cur_pid;
+        }
+        $loaded_playlists[$i][2][] = $cur_row['file_path'];
+    }
 }
-*/
 
-echo 'all is well that ends well';
+//step 4, present audio player
+?>
+<!DOCTYPE html5>
+<html>
+<head>
+<meta charset="utf8" />
+<title>juph audio player</title>
+<script type="text/javascript">
+var searchField;
+var searchListWrapper;
+function init()
+{
+  searchField = document.getElementById("search_input");
+  searchField.addEventListener("keyup", search_keyup);
+  searchListWrapper = document.getElementById("search_list_wrapper");
+
+}
+function search_keyup(eventObj)
+{
+  var searchSubject = searchField.value;
+  if(2 < searchSubject.length)
+  {
+    ajax_matching_tracks(searchSubject);
+  }
+}
+var ajax;
+function ajax_matching_tracks(searchSubject)
+{
+  ajax = new XMLHttpRequest();
+  ajax.open("GET", "?ajax&matching_tracks=" + encodeURIComponent(searchSubject));
+  ajax.addEventListener("load", function() {
+    removeChilds(searchListWrapper);
+    var responseJSON = JSON.parse(ajax.responseText);
+    for(var i = 0; i < responseJSON.matches.length; ++i)
+    {
+      var newMatch = document.createElement("a");
+      newMatch.appendChild(document.createTextNode(basename(responseJSON.matches[i].name)));
+      newMatch.setAttribute("href", "javascript:ajax_request_track('" + responseJSON.matches[i].name + "')");
+      searchListWrapper.appendChild(newMatch);
+      searchListWrapper.appendChild(document.createElement("br"));
+    }
+   });
+  ajax.send();
+}
+function ajax_request_track(trackpath)
+{
+  var played = new Audio("?ajax&request_track=" + encodeURIComponent(trackpath));
+  played.preload = "auto";
+  played.play();
+}
+function removeChilds(parentNode)
+{
+  for(var i = parentNode.childNodes.length - 1; i >= 0; i--)
+  {
+    parentNode.removeChild(parentNode.childNodes[i]);
+  }
+}
+function basename(filepath)
+{
+  var matchEnd = filepath.match(/[^/]+$/);
+  return matchEnd[0];
+}
+document.addEventListener("DOMContentLoaded", init);
+</script>
+<style type="text/css">
+.content_wrapper {
+  margin: 0px auto 0px auto;
+  width: 90%;
+}
+.left_wrapper {
+  float: left;
+  width: 45%;
+}
+.right_wrapper {
+  float: right;
+  width: 45%;
+}
+.search_input {
+  width: 100%;
+  background-image: url(looking-glass.png);
+  background-repeat: no-repeat;
+  background-position: calc(100% - 20px) 0px;
+}
+.search_list_wrapper {
+}
+</style>
+</head>
+<body>
+<div class="content_wrapper">
+<div class="left_wrapper">
+<img src="logo.png" width="200" height="215" alt="juph logo"/><br/>
+<audio id="audio_player" controls>
+</audio>
+</div>
+<div class="right_wrapper">
+<input type="text" id="search_input" class="search_input" size="20" />
+<div id="search_list_wrapper" class="search_list_wrapper">
+</div>
+</div>
+</div>
+</body>
+</html>
+<?php
+
+
 ?>
