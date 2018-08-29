@@ -8,6 +8,8 @@
  * 3a load last played playlist (but do not play yet)
  * 3b load list of all playlists
  * 4 present HTML5-Audio-Player
+ *
+ * TODO: handle each and every mysql query: log mysql errors to a file
  */
 $CONFIG_FILE = 'config.ini';
 $CONFIG_VAR = NULL;
@@ -41,13 +43,21 @@ function flush_files_to_db($dbcon, $files_to_insert)
     {
         return;
     }
-    //TODO: combine sql queries, don't do a separate query for every single entry
+    // combine sql queries, don't do a separate query for every single entry
+    $sql_values = 'VALUES ';
+    $i = 0;
     foreach($files_to_insert as $cur_file)
     {
         $hashed_filename = md5($cur_file->path);
         $escaped_filename = $dbcon->real_escape_string($cur_file->path);
-        @$dbcon->query('INSERT INTO `filecache` (`id`, `path_hash`, `path_str`, `last_scan`, `size`) VALUES(NULL, \'' . $hashed_filename . '\', \'' . $escaped_filename . '\', ' . $cur_time . ', ' . $cur_file->size . ') ON DUPLICATE KEY UPDATE `last_scan` = ' . $cur_time);
+        if(0 < $i)
+        {
+            $sql_values .= ', ';
+        }
+        $sql_values .= '(NULL, \'' . $hashed_filename . '\', \'' . $escaped_filename . '\', ' . $cur_time . ', ' . $cur_file->size . ')';
+        $i++;
     }
+    @$dbcon->query('INSERT INTO `filecache` (`id`, `path_hash`, `path_str`, `last_scan`, `size`) ' . $sql_values . ' ON DUPLICATE KEY UPDATE `last_scan` = VALUES(`filecache`.`last_scan`)');
 }
 
 
@@ -287,15 +297,19 @@ echo "Starting with MUSIC_DIR_ROOT loop<br/>\n";
         $scan_errormessage .= 'Configured MUSIC_DIR_ROOT "' . $CONFIG_VAR['MUSIC_DIR_ROOT'] . '" not accessible as a directory.';
     }
     
-    //TODO: invalidate all files in table filecache which do not have the timestamp of the current scan
+    //invalidate all files in table filecache which do not have the timestamp of the current scan
     @$dbcon->query('UPDATE `filecache` SET `valid`=\'N\' WHERE `last_scan`!=' . $cur_time);
-    //TODO: enter scan results into database (i.e. enter $cur_time, $scan_complete, $scan_filecount, $san_errormessage)
+    //enter scan results into database (i.e. enter $cur_time, $scan_complete, $scan_filecount, $san_errormessage)
     @$dbcon->query('INSERT INTO `scans` (`time`, `completed`, `error_message`, `files_scanned`) VALUES (' . $cur_time . ', \'' . (0 < strlen($scan_errormessage) ? 'N' : 'Y') . '\', \'' . $dbcon->real_escape_string($scan_errormessage) . '\', ' . $i . ')');
 }
 
-
-
-
+//step 3b, load all playlists
+/*
+$playlists_result = @$dbcon->query('SELECT `playlists`.`id`, `playlists`.`name`, `playlists`.`thumb_path`,`filecache`.`path_str` FROM `playlists` INNER JOIN `relation_playlists` ON `playlists`.`id`=`relation_playlists`.`pid` INNER JOIN `filecache` ON `relation_playlists`.`fid`=`filecache`.`id` ORDER BY `playlists`.`name` ASC, `relation_playlists`.`prank` ASC');
+if(!(FALSE === $playlists_result) && 0 < $playlists_result->num_rows)
+{
+}
+*/
 
 echo 'all is well that ends well';
 ?>
