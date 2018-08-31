@@ -80,7 +80,7 @@ if(!file_exists($CONFIG_FILE))
     unset($admin_password);
 } else
 {
-    // config.ini exists
+    // config.ini exists at this point
     if(is_null($CONFIG_VAR))
     {
         server_error("Error while accessing file system");

@@ -28,14 +28,37 @@ class MinimalisticFile {
         $this->size = filesize($this->path);
     }
 }
-
-function server_error($message = "Internal Server Error")
+function js_escape($source_str)
+{
+    return str_replace(array("\\", "\"","\n"), array("\\\\", "\\\"", "\\n"), $source_str);
+}
+function server_error($message = "Internal Server Error", $ajax = false)
 {
     header('HTTP/1.1 500 Server error');
-    echo "<!DOCTYPE html>\n<html>\n<head>\n<title>Server Error</title>\n</head>\n";
-    echo "<h1>Internal Server Error</h1>\n";
-    echo "<div>" . htmlspecialchars($message) . "</div>\n";
-    echo "<body>\n</body>\n</html>";
+    if($ajax)
+    {
+        echo "<!DOCTYPE html>\n<html>\n<head>\n<title>Server Error</title>\n</head>\n";
+        echo "<h1>Internal Server Error</h1>\n";
+        echo "<div>" . htmlspecialchars($message) . "</div>\n";
+        echo "<body>\n</body>\n</html>";
+    } else
+    {
+        echo "{\n\"success\": false,\n\"error_message\":\"" . js_escape($message) . "\"\n}";
+    }
+}
+function client_error($message = "Client side error", $ajax = false)
+{
+    header('HTTP/1.1 400 Client error');
+    if($ajax)
+    {
+        echo "<!DOCTYPE html>\n<html>\n<head>\n<title>Client error</title>\n</head>\n";
+        echo "<h1>Bad Request</h1>\n";
+        echo "<div>" . htmlspecialchars($message) . "</div>\n";
+        echo "<body>\n</body>\n</html>";
+    } else
+    {
+        echo "{\n\"success\": false,\n\"error_message\":\"" . js_escape($message) . "\"\n}";
+    }
 }
 function flush_files_to_db($dbcon, $files_to_insert)
 {
@@ -74,7 +97,7 @@ if( $do_setup)
 {
     if(isset($_GET['ajax']))
     {
-        server_error("Ajax unavailable");
+        server_error("Ajax unavailable", true);
     } else
     { 
         include('setup.php');
@@ -203,40 +226,45 @@ if($need_create_table)
 //step 1c, handle ajax
 if(isset($_GET['ajax']))
 {
-    if($_GET['matching_tracks'])
+    if(isset($_GET['matching_tracks']))
     {
         $search_subject = $_GET['matching_tracks'];
         if(3 > strlen($search_subject))
         {
-            echo "error";
+            client_error("too few characters to search", true);
         
         } else
         {
             $search_subject = $dbcon->real_escape_string($search_subject);
-            $result_matches = @$dbcon->query('SELECT `path_str` FROM `filecache` WHERE `path_str` LIKE \'%' . $search_subject . '%\' ORDER BY `path_str` ASC LIMIT 100');
+            $result_matches = @$dbcon->query('SELECT `id`,`path_str` FROM `filecache` WHERE `path_str` LIKE \'%' . $search_subject . '%\' ORDER BY `path_str` ASC LIMIT 100');
             if(!(FALSE === $result_matches))
             {
-                echo "{\n\"matches\": [";
+                echo "{\n\"success\": true,\n\"matches\": [\n";
                 $i = 0;
                 while($cur_row = $result_matches->fetch_assoc())
                 {
                     if(0 < $i) echo ",\n";
-                    echo "{ \"name\": \"" . str_replace(array("\\", "\"","\n"), array("\\\\", "\\\"", "\\n"), $cur_row['path_str']) . "\"}";
+                    echo "{ \"id\": " . $cur_row['id'] . ",\"name\": \"" . js_escape($cur_row['path_str']) . "\"}";
                     $i++;
                 }
                 echo "]\n}";
             }
         }
-    } else if($_GET['request_track'])
+    } else if(isset($_GET['request_track']))
     {
-        $target_file = $_GET['request_track'];
-        if(0 === strpos($target_file, $CONFIG_VAR['MUSIC_DIR_ROOT']) && FALSE === strpos($target_file, '/../'))
+        $target_id = (int) $_GET['request_track'];
+        if(0 < $target_id && 9223372036854776000 > $target_id)
         {
-            if(file_exists($target_file))
+            $result_raw = @$dbcon->query('SELECT `path_str`, `valid` FROM `filecache` WHERE `id`=' . $target_id);
+            if(!(FALSE === $result_raw) && 0 < $result_raw->num_rows)
             {
-                $target_data = file_get_contents($target_file);
-                header('Content-Type: audio/mp3');
-                echo $target_data;
+                $result_row = $result_raw->fetch_assoc();
+                if('Y' == $result_row['valid'] && file_exists($result_row['path_str']))
+                {
+                    $target_data = file_get_contents($result_row['path_str']);
+                    header('Content-Type: audio/mp3');
+                    echo $target_data;
+                }
             }
         }
     }
@@ -386,12 +414,119 @@ if(!(FALSE === $playlists_result) && 0 < $playlists_result->num_rows)
 <script type="text/javascript">
 var searchField;
 var searchListWrapper;
+var audioPlayer;
+var playlistWrapper;
+var sessionPlaylist;
+var playlistEle;
+var playlistObj;
 function init()
 {
   searchField = document.getElementById("search_input");
   searchField.addEventListener("keyup", search_keyup);
   searchListWrapper = document.getElementById("search_list_wrapper");
-
+  audioPlayer = document.getElementById("audio_player");
+  playlistWrapper = document.getElementById("playlist_wrapper");
+  playlistObj = new PlaylistClass();
+  playlistObj.assumePlaylist();
+  audioPlayer.addEventListener("ended", playlistObj.playNext);
+}
+function PlaylistClass()
+{
+  this.boundHtml;
+  this.htmlTrackCount = 0;
+  this.tracks = new Array();
+  this.offset = 0;
+  this.assumePlaylist = function()
+  {
+    if(playlistEle)
+    {
+      playlistEle.parentNode.removeChild(playlistEle);
+    }
+    var myEle = document.createElement("div");
+    myEle.setAttribute("class", "playlist");
+    playlistWrapper.appendChild(myEle);
+    this.htmlTrackCount = 0;
+    this.boundHtml = myEle;
+    playlistEle = myEle;
+  }
+  this.enqueueLast = function(trackId, trackName)
+  {
+    var newTrack = new TrackClass(trackId, trackName);
+    this.tracks.push(newTrack);
+    this.addTrackHtml(newTrack, this.tracks.length - 1);
+  }
+  this.enqueueNext = function(trackId, trackName)
+  {
+    var newTrack = new TrackClass(trackId, trackName);
+    this.tracks.splice(this.offset, 0, new TrackClass(trackId, trackName));
+    this.addTrackHtml(newTrack, this.offset);
+  }
+  this.addTrackHtml = function(trackObj, position)
+  {
+    var trackLink = document.createElement("a");
+    trackLink.setAttribute("href", "javascript:playlistObj.playOffset(" + position + ")");
+    trackLink.setAttribute("class", "playlist_link");
+    var trackEle = document.createElement("div");
+    trackEle.setAttribute("class", "playlist_element");
+    trackEle.appendChild(document.createTextNode(beautifySongName(basename(trackObj.name))));
+    trackLink.appendChild(trackEle);
+    if(position == (this.htmlTrackCount + 1))
+    {
+      this.boundHtml.appendChild(trackLink);
+    } else
+    {
+      this.boundHtml.insertBefore(trackLink, this.boundHtml.childNodes[position]);
+      for(var i = position + 1; i < this.boundHtml.childNodes.length; ++i)
+      {
+        this.boundHtml.childNodes[i].setAttribute("href", "javascript:playlistObj.playOffset(" + i + ")");
+      }
+    }
+    this.htmlTrackCount++;
+  }
+  this.length = function()
+  {
+    return this.tracks.length;
+  }
+  this.playOffset = function(newOffset)
+  {
+    if(-1 < newOffset && newOffset < playlistObj.tracks.length)
+    {
+      playlistObj.offset = newOffset;
+    }
+    playlistObj.play();
+  }
+  this.play = function()
+  {
+    if(this.offset >= this.tracks.length)
+    {
+      this.offset = 0;
+    }
+    if(this.offset < this.tracks.length)
+    {
+      var requestUrl = "?ajax&request_track=" + this.tracks[this.offset].id;
+      audioPlayer.pause();
+      audioPlayer.setAttribute("src", requestUrl);
+      audioPlayer.preload = "auto";
+      audioPlayer.play();
+    }
+  }
+  this.advance = function(direction)
+  {
+    if(0 != direction)
+    {
+      this.offset = (this.offset + direction) % this.tracks.length;
+    }
+  }
+  this.playNext = function()
+  {
+    playlistObj.advance(1);
+    playlistObj.play();
+  }
+}
+function TrackClass(trackId, trackName)
+{
+  this.id = trackId;
+  this.name = trackName;
 }
 function search_keyup(eventObj)
 {
@@ -401,30 +536,44 @@ function search_keyup(eventObj)
     ajax_matching_tracks(searchSubject);
   }
 }
-var ajax;
 function ajax_matching_tracks(searchSubject)
 {
-  ajax = new XMLHttpRequest();
+  var ajax = new XMLHttpRequest();
   ajax.open("GET", "?ajax&matching_tracks=" + encodeURIComponent(searchSubject));
-  ajax.addEventListener("load", function() {
-    removeChilds(searchListWrapper);
-    var responseJSON = JSON.parse(ajax.responseText);
-    for(var i = 0; i < responseJSON.matches.length; ++i)
-    {
-      var newMatch = document.createElement("a");
-      newMatch.appendChild(document.createTextNode(basename(responseJSON.matches[i].name)));
-      newMatch.setAttribute("href", "javascript:ajax_request_track('" + responseJSON.matches[i].name + "')");
-      searchListWrapper.appendChild(newMatch);
-      searchListWrapper.appendChild(document.createElement("br"));
-    }
+  ajax.addEventListener("load", function(param) {
+    process_matching_tracks(param.target.responseText);
    });
   ajax.send();
 }
-function ajax_request_track(trackpath)
+function process_matching_tracks(responseText)
 {
-  var played = new Audio("?ajax&request_track=" + encodeURIComponent(trackpath));
-  played.preload = "auto";
-  played.play();
+  removeChilds(searchListWrapper);
+  var responseJSON = JSON.parse(responseText);
+  for(var i = 0; i < responseJSON.matches.length; ++i)
+  {
+    var fileBase = basename(responseJSON.matches[i].name);
+    fileBase = beautifySongName(fileBase);
+    var linkEle = document.createElement("a");
+    linkEle.setAttribute("href", "javascript:searchTrackLeftclicked(" + responseJSON.matches[i].id + ", \"" + fileBase + "\")");
+    linkEle.setAttribute("class", "search_list_link");
+    var divEle = document.createElement("div");
+    divEle.setAttribute("class", "search_list_element");
+    divEle.appendChild(document.createTextNode(fileBase));
+    linkEle.appendChild(divEle);
+    searchListWrapper.appendChild(linkEle);
+    //searchListWrapper.appendChild(document.createElement("br"));
+  }
+}
+function searchTrackLeftclicked(trackId, trackName)
+{
+  playlistObj.enqueueLast(trackId, trackName);
+  if(1 == playlistObj.length())
+  {
+    playlistObj.play();
+  }
+}
+function ajax_request_track(trackid)
+{
 }
 function removeChilds(parentNode)
 {
@@ -437,6 +586,15 @@ function basename(filepath)
 {
   var matchEnd = filepath.match(/[^/]+$/);
   return matchEnd[0];
+}
+function beautifySongName(filename)
+{
+  var beautified = filename.replace(/\.[a-zA-Z0-9]{1,6}$/, "");
+  beautified = beautified.replace(/_id[-_a-zA-Z0-9]{4,15}$/, "");
+  beautified = beautified.replace(/_/g, " ");
+  var withoutLeadingNumbers = beautified.replace(/^[0-9]{1,4} ?(- )?/, "");
+  if(1 < withoutLeadingNumbers.length)  beautified = withoutLeadingNumbers;
+  return beautified;
 }
 document.addEventListener("DOMContentLoaded", init);
 </script>
@@ -461,6 +619,27 @@ document.addEventListener("DOMContentLoaded", init);
 }
 .search_list_wrapper {
 }
+.search_list_element {
+  border: 2px solid #e0e0e0;
+  overflow: hidden;
+}
+.search_list_link:link, .search_list_link:visited {
+  color: #000000;
+  text-decoration: none;
+}
+.playlist {
+  height: 200px;
+}
+.playlist_link:link, .playlist_link:visited {
+  color: #000000;
+  text-decoration: none;
+}
+.playlist_element {
+  border: 1px solid #ffffff;
+  background-color: #000000;
+  color: #ffffff;
+  overflow: hidden;
+}
 </style>
 </head>
 <body>
@@ -469,6 +648,8 @@ document.addEventListener("DOMContentLoaded", init);
 <img src="logo.png" width="200" height="215" alt="juph logo"/><br/>
 <audio id="audio_player" controls>
 </audio>
+<div id="playlist_wrapper">
+</div>
 </div>
 <div class="right_wrapper">
 <input type="text" id="search_input" class="search_input" size="20" />
