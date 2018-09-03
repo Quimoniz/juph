@@ -224,6 +224,7 @@ if($need_create_table)
 }
 
 //step 1c, handle ajax
+$AJAX_PAGE_LIMIT = 100;
 if(isset($_GET['ajax']))
 {
     if(isset($_GET['matching_tracks']))
@@ -235,19 +236,43 @@ if(isset($_GET['ajax']))
         
         } else
         {
+            $search_offset = 0;
+            if(isset($_GET['matching_offset']))
+            {
+                $search_offset = (int) $_GET['matching_offset'];
+                if(0 > $search_offset)
+                {
+                    $search_offset = 0;
+                }
+            }
             $search_subject = $dbcon->real_escape_string($search_subject);
-            $result_matches = @$dbcon->query('SELECT `id`,`path_str` FROM `filecache` WHERE `path_str` LIKE \'%' . $search_subject . '%\' ORDER BY `path_str` ASC LIMIT 100');
+            $count_matches = 0;
+            $result_matches = @$dbcon->query('SELECT COUNT(`id`) as \'count_matches\' FROM `filecache` WHERE `path_str` LIKE \'%' . $search_subject . '%\'');
             if(!(FALSE === $result_matches))
             {
-                echo "{\n\"success\": true,\n\"matches\": [\n";
-                $i = 0;
-                while($cur_row = $result_matches->fetch_assoc())
+                $count_matches = $result_matches->fetch_assoc();
+                $count_matches = (int) $count_matches['count_matches'];
+            }
+            if(0 < $count_matches)
+            {
+                $result_matches = @$dbcon->query('SELECT `id`,`path_str` FROM `filecache` WHERE `path_str` LIKE \'%' . $search_subject . '%\' ORDER BY `path_str` ASC LIMIT ' . $search_offset . ',' . $AJAX_PAGE_LIMIT);
+                if(!(FALSE === $result_matches))
                 {
-                    if(0 < $i) echo ",\n";
-                    echo "{ \"id\": " . $cur_row['id'] . ",\"name\": \"" . js_escape($cur_row['path_str']) . "\"}";
-                    $i++;
+                    echo "{\n\"success\": true,\n\"countMatches\":";
+                    echo $count_matches . ",\n\"pageLimit\":" . $AJAX_PAGE_LIMIT;
+                    echo ",\n\"offsetMatches\":" . $search_offset . ",\n\"matches\": [\n";
+                    $i = 0;
+                    while($cur_row = $result_matches->fetch_assoc())
+                    {
+                        if(0 < $i) echo ",\n";
+                        echo "{ \"id\": " . $cur_row['id'] . ",\"name\": \"" . js_escape($cur_row['path_str']) . "\"}";
+                        $i++;
+                    }
+                    echo "]\n}";
                 }
-                echo "]\n}";
+            } else
+            {
+                client_error('no query results', true);
             }
         }
     } else if(isset($_GET['request_track']))
@@ -415,6 +440,7 @@ if(!(FALSE === $playlists_result) && 0 < $playlists_result->num_rows)
 var searchField;
 var searchListWrapper;
 var audioPlayer;
+var audioCaption;
 var playlistWrapper;
 var sessionPlaylist;
 var playlistEle;
@@ -429,6 +455,7 @@ function init()
   playlistObj = new PlaylistClass();
   playlistObj.assumePlaylist();
   audioPlayer.addEventListener("ended", playlistObj.playNext);
+  audioCaption = document.getElementById("audio_caption");
 }
 function PlaylistClass()
 {
@@ -467,7 +494,13 @@ function PlaylistClass()
     trackLink.setAttribute("href", "javascript:playlistObj.playOffset(" + position + ")");
     trackLink.setAttribute("class", "playlist_link");
     var trackEle = document.createElement("div");
-    trackEle.setAttribute("class", "playlist_element");
+    if(position == this.offset)
+    {
+      trackEle.setAttribute("class", "playlist_selected_element");
+    } else
+    {
+      trackEle.setAttribute("class", "playlist_element");
+    }
     trackEle.appendChild(document.createTextNode(beautifySongName(basename(trackObj.name))));
     trackLink.appendChild(trackEle);
     if(position == (this.htmlTrackCount + 1))
@@ -491,7 +524,9 @@ function PlaylistClass()
   {
     if(-1 < newOffset && newOffset < playlistObj.tracks.length)
     {
+      this.boundHtml.childNodes[this.offset].firstChild.setAttribute("class", "playlist_element");
       playlistObj.offset = newOffset;
+      this.boundHtml.childNodes[this.offset].firstChild.setAttribute("class", "playlist_element playlist_selected_element");
     }
     playlistObj.play();
   }
@@ -508,13 +543,17 @@ function PlaylistClass()
       audioPlayer.setAttribute("src", requestUrl);
       audioPlayer.preload = "auto";
       audioPlayer.play();
+      removeChilds(audioCaption);
+      audioCaption.appendChild(document.createTextNode(this.tracks[this.offset].name));
     }
   }
   this.advance = function(direction)
   {
     if(0 != direction)
     {
+      this.boundHtml.childNodes[this.offset].firstChild.setAttribute("class", "playlist_element");
       this.offset = (this.offset + direction) % this.tracks.length;
+      this.boundHtml.childNodes[this.offset].firstChild.setAttribute("class", "playlist_element playlist_selected_element");
     }
   }
   this.playNext = function()
@@ -533,35 +572,115 @@ function search_keyup(eventObj)
   var searchSubject = searchField.value;
   if(2 < searchSubject.length)
   {
-    ajax_matching_tracks(searchSubject);
+    ajax_matching_tracks(searchSubject,0);
   }
 }
-function ajax_matching_tracks(searchSubject)
+function ajax_matching_tracks(searchSubject, offset)
 {
   var ajax = new XMLHttpRequest();
-  ajax.open("GET", "?ajax&matching_tracks=" + encodeURIComponent(searchSubject));
+  ajax.open("GET", "?ajax&matching_tracks=" + encodeURIComponent(searchSubject) + "&matching_offset=" + encodeURIComponent(offset));
   ajax.addEventListener("load", function(param) {
     process_matching_tracks(param.target.responseText);
    });
   ajax.send();
 }
+var currentTracklist = undefined;
+function Tracklist(tracklistJSON)
+{
+  this.tracks = new Array();
+  this.pageLimit = 100;
+  this.pageOffset = 0;
+  this.matchCount = 0;
+  if(tracklistJSON.success)
+  {
+    this.matchCount = tracklistJSON.countMatches;
+    this.pageOffset = tracklistJSON.offsetMatches;
+    this.pageLimit  = tracklistJSON.pageLimit;
+    for(var i = 0; i < tracklistJSON.matches.length; ++i)
+    {
+      this.tracks.push(new TrackClass(tracklistJSON.matches[i].id, tracklistJSON.matches[i].name));
+    }
+  }
+  this.assumeSearchList = function()
+  {
+    removeChilds(searchListWrapper);
+    if(this.matchCount > this.pageLimit)
+    {
+      var curPage = Math.floor(this.pageOffset / this.pageLimit);
+      var maxPages = Math.ceil(this.matchCount / this.pageLimit);
+      var showPages = new Array();
+      for(var i = curPage - 2; i < (curPage + 3); ++i)
+      {
+        if(i >= 0 && i < maxPages)
+        {
+          showPages.push(i);
+        }
+      }
+      if(1 < showPages.length)
+      {
+        if(0 < showPages[0])
+        {
+          showPages.unshift(0);
+        }
+        if(maxPages > (showPages[showPages.length - 1] + 1))
+        {
+          showPages.push(maxPages - 1);
+        }
+        var pageNumEle = document.createElement("div");
+        for(var i = 0; i < showPages.length; ++i)
+        {
+          var fillerEle = document.createElement("span");
+          if(0 < i && 1 < Math.abs(showPages[i] - showPages[i - 1]))
+          {
+            fillerEle.appendChild(document.createTextNode(" ... "));
+          } else
+          {
+            fillerEle.appendChild(document.createTextNode("  "));
+          }
+          pageNumEle.appendChild(fillerEle);
+          var curPageNumEle = document.createElement("a");
+          if(showPages[i] != curPage)
+          {
+            curPageNumEle.setAttribute("href", "javascript:ajax_matching_tracks(searchField.value," + showPages[i] * this.pageLimit + ")");
+          }
+          curPageNumEle.appendChild(document.createTextNode("" + (showPages[i] + 1)));
+          pageNumEle.appendChild(curPageNumEle);
+        }
+        searchListWrapper.appendChild(pageNumEle);
+      }
+    }
+    for(var i = 0; i < this.tracks.length; ++i)
+    {
+      var fileBase = basename(this.tracks[i].name);
+      fileBase = beautifySongName(fileBase);
+      var linkEle = document.createElement("a");
+      linkEle.setAttribute("href", "javascript:searchTrackLeftclicked(" + this.tracks[i].id + ", \"" + fileBase + "\")");
+      linkEle.setAttribute("class", "search_list_link");
+      var divEle = document.createElement("div");
+      divEle.setAttribute("class", "search_list_element");
+      divEle.appendChild(document.createTextNode(fileBase));
+      linkEle.appendChild(divEle);
+      searchListWrapper.appendChild(linkEle);
+    }
+  }
+}
 function process_matching_tracks(responseText)
 {
   removeChilds(searchListWrapper);
-  var responseJSON = JSON.parse(responseText);
-  for(var i = 0; i < responseJSON.matches.length; ++i)
+  var responseJSON;
+  try
   {
-    var fileBase = basename(responseJSON.matches[i].name);
-    fileBase = beautifySongName(fileBase);
-    var linkEle = document.createElement("a");
-    linkEle.setAttribute("href", "javascript:searchTrackLeftclicked(" + responseJSON.matches[i].id + ", \"" + fileBase + "\")");
-    linkEle.setAttribute("class", "search_list_link");
-    var divEle = document.createElement("div");
-    divEle.setAttribute("class", "search_list_element");
-    divEle.appendChild(document.createTextNode(fileBase));
-    linkEle.appendChild(divEle);
-    searchListWrapper.appendChild(linkEle);
-    //searchListWrapper.appendChild(document.createElement("br"));
+    responseJSON = JSON.parse(responseText);
+  } catch(exc)
+  {
+    console.log(exc);
+    searchListWrapper.appendChild(document.createTextNode("JS-Error: Could not parse server response as JSON."));
+    return;
+  }
+  if(responseJSON)
+  {
+    currentTracklist = new Tracklist(responseJSON);
+    currentTracklist.assumeSearchList();
   }
 }
 function searchTrackLeftclicked(trackId, trackName)
@@ -571,9 +690,6 @@ function searchTrackLeftclicked(trackId, trackName)
   {
     playlistObj.play();
   }
-}
-function ajax_request_track(trackid)
-{
 }
 function removeChilds(parentNode)
 {
@@ -627,6 +743,10 @@ document.addEventListener("DOMContentLoaded", init);
   color: #000000;
   text-decoration: none;
 }
+#audio_caption {
+  font-size: 20pt;
+  font-weight: bold;
+}
 .playlist {
   height: 200px;
 }
@@ -640,12 +760,21 @@ document.addEventListener("DOMContentLoaded", init);
   color: #ffffff;
   overflow: hidden;
 }
+.playlist_selected_element {
+  color: #000000;
+  background-color: #ffffff;
+}
+.playlist_selected_element::before {
+  content: "▶ ";
+*/
 </style>
 </head>
 <body>
 <div class="content_wrapper">
 <div class="left_wrapper">
 <img src="logo.png" width="200" height="215" alt="juph logo"/><br/>
+<div id="audio_caption">
+</div>
 <audio id="audio_player" controls>
 </audio>
 <div id="playlist_wrapper">
