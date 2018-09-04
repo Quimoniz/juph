@@ -102,6 +102,7 @@ if(isset($_POST['pwd']) && $CONFIG_VAR['ADMIN_PWD'] === $_POST['pwd'])
         $CONFIG_VAR['DB_USER'] = $_POST['db_user'];
         $CONFIG_VAR['DB_PWD'] = $_POST['db_pwd'];
         $CONFIG_VAR['MUSIC_DIR_ROOT'] = $_POST['music_dir_root'];
+        $CONFIG_VAR['ACCESS_PWD'] = $_POST['access_pwd_param'];
         $CONFIG_VAR['setup_complete'] = "true";
         write_ini_file($CONFIG_VAR, $CONFIG_FILE);
         echo "entered into config.ini!";
@@ -117,6 +118,7 @@ if(isset($_POST['pwd']) && $CONFIG_VAR['ADMIN_PWD'] === $_POST['pwd'])
         echo "<label for=\"db_user\">Database user:</label><input type=\"text\" id=\"db_user\" name=\"db_user\" size=\"25\"/><br/>\n";
         echo "<label for=\"db_pwd\">Database password:</label><input type=\"text\" id=\"db_pwd\" name=\"db_pwd\" size=\"25\"/><br/>\n";
         echo "<label for=\"music_dir_root\">Music dir root:</label><input type=\"text\" id=\"music_dir_root\" name=\"music_dir_root\" size=\"25\"/><br/>\n";
+        echo "<label for=\"access_pwd_param\">Database password:</label><input type=\"text\" id=\"access_pwd_param\" name=\"access_pwd_param\" size=\"25\"/><br/>\n";
         echo "<input type=\"submit\" />";
         echo "</form>\n";
     }

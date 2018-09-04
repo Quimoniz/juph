@@ -35,7 +35,7 @@ function js_escape($source_str)
 function server_error($message = "Internal Server Error", $ajax = false)
 {
     header('HTTP/1.1 500 Server error');
-    if($ajax)
+    if(!$ajax)
     {
         echo "<!DOCTYPE html>\n<html>\n<head>\n<title>Server Error</title>\n</head>\n";
         echo "<h1>Internal Server Error</h1>\n";
@@ -49,7 +49,7 @@ function server_error($message = "Internal Server Error", $ajax = false)
 function client_error($message = "Client side error", $ajax = false)
 {
     header('HTTP/1.1 400 Client error');
-    if($ajax)
+    if(!$ajax)
     {
         echo "<!DOCTYPE html>\n<html>\n<head>\n<title>Client error</title>\n</head>\n";
         echo "<h1>Bad Request</h1>\n";
@@ -111,6 +111,7 @@ if(!isset($CONFIG_VAR['DB_ADDR'])
 || !isset($CONFIG_VAR['DB_DB']) 
 || !isset($CONFIG_VAR['DB_USER']) 
 || !isset($CONFIG_VAR['DB_PWD']) 
+|| !isset($CONFIG_VAR['ACCESS_PWD'])
 || !isset($CONFIG_VAR['MUSIC_DIR_ROOT']))
 {
     server_error('Could not load essential configuration variables, setup correct?');
@@ -118,6 +119,53 @@ if(!isset($CONFIG_VAR['DB_ADDR'])
     exit(0);
 }
 
+$access_granted = false;
+if(isset($_GET['access_pwd']) && 0 === strcmp($CONFIG_VAR['ACCESS_PWD'], $_GET['access_pwd']))
+{
+    $access_granted = true;
+}
+if(isset($_POST['access_pwd']) && 0 === strcmp($CONFIG_VAR['ACCESS_PWD'], $_POST['access_pwd']))
+{
+    $access_granted = true;
+}
+if(isset($_COOKIE['access_pwd']) && 0 === strcmp($CONFIG_VAR['ACCESS_PWD'], $_COOKIE['access_pwd']))
+{
+    $access_granted = true;
+}
+if($access_granted)
+{
+    setcookie('access_pwd', $CONFIG_VAR['ACCESS_PWD'], time() + 86400 * 7);
+} else
+{
+?>
+<!DOCTYPE html5>
+<html>
+<head>
+<meta charset="utf8" />
+<title>Password Prompt</title>
+<style type="text/css">
+.pw_wrapper {
+  width: 35em;
+  margin: 100px auto 0px auto;
+}
+</style>
+</head>
+<body>
+<div class="pw_wrapper">
+<fieldset>
+<legend>Password:</legend>
+<form method="POST" action="">
+<input type="password" name="access_pwd" size="30" />
+<input type="submit" />
+</form>
+</form>
+</fieldset>
+</div>
+</body>
+</html>
+<?php
+    exit(0);
+}
 /* try to connect to database */
 $dbcon = new mysqli($CONFIG_VAR['DB_ADDR'], $CONFIG_VAR['DB_USER'], $CONFIG_VAR['DB_PWD'], $CONFIG_VAR['DB_DB'], (int) $CONFIG_VAR['DB_PORT']);
 if($dbcon->connect_errno)
@@ -445,6 +493,7 @@ var playlistWrapper;
 var sessionPlaylist;
 var playlistEle;
 var playlistObj;
+var juffImgEle;
 function init()
 {
   searchField = document.getElementById("search_input");
@@ -456,6 +505,7 @@ function init()
   playlistObj.assumePlaylist();
   audioPlayer.addEventListener("ended", playlistObj.playNext);
   audioCaption = document.getElementById("audio_caption");
+  juffImgEle = document.getElementById("juff_img");
 }
 function PlaylistClass()
 {
@@ -545,6 +595,7 @@ function PlaylistClass()
       audioPlayer.play();
       removeChilds(audioCaption);
       audioCaption.appendChild(document.createTextNode(this.tracks[this.offset].name));
+      juffImgEle.setAttribute("src", "country.png");
     }
   }
   this.advance = function(direction)
@@ -766,13 +817,12 @@ document.addEventListener("DOMContentLoaded", init);
 }
 .playlist_selected_element::before {
   content: "▶ ";
-*/
 </style>
 </head>
 <body>
 <div class="content_wrapper">
 <div class="left_wrapper">
-<img src="logo.png" width="200" height="215" alt="juph logo"/><br/>
+<img id="juff_img" src="logo.png" alt="juph logo"/><br/>
 <div id="audio_caption">
 </div>
 <audio id="audio_player" controls>
