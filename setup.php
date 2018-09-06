@@ -5,7 +5,6 @@
 //3. if password is correct and configuration options are given,
 //   then write out complete config.ini file, setup mysql-database
 
-
 function write_ini_file ($ini_array, $dst_file)
 {
         $write_buf="";
@@ -35,7 +34,40 @@ function ini_pair_to_str ($ini_key, $ini_val)
 
         return $ini_buf;
 }
+function write_config_file($config_var, $dst_file)
+{
+    $fp = fopen($dst_file, "w");
+    fwrite($fp, "<" . "?php\n");
+    if(is_array($config_var))
+    {
+        fwrite($fp, "\$CONFIG_VAR = array();\n");
+        
+        foreach($config_var as $childKey => $childValue)
+        {   
+            fwrite($fp,"\$CONFIG_VAR[\"" . escape_config_value($childKey) . "\"] = \"" . escape_config_value($childValue) . "\";\n");
+        }   
+    }
+    fwrite($fp, '?' . '>');
+    fclose($fp);
+}
+function escape_config_value($sourceVal)
+{
+    $outVal = str_replace(array("\"", "\$", "\\", "\n"), array("\\\"", "\\\$", "\\\\", "\\n"), $sourceVal);
+    return $outVal;
+}
 
+function check_db_connectable($db_addr, $db_port, $db_user, $db_pwd, $db_db)
+{
+    $dbcon = @new mysqli($db_addr, $db_port, $db_user, $db_pwd, $db_db, (int) $db_port);
+    if(!$dbcon || $dbcon->connect_errno)
+    {
+        return false;
+    } else
+    {
+        $dbcon->close();
+        return true;
+    }
+}
 
 
 
@@ -76,7 +108,7 @@ if(!file_exists($CONFIG_FILE))
     touch($CONFIG_FILE);
     chmod($CONFIG_FILE, 0740);
     $CONFIG_VAR = array( "ADMIN_PWD" => $admin_password);
-    write_ini_file($CONFIG_VAR, $CONFIG_FILE);
+    write_config_file($CONFIG_VAR, $CONFIG_FILE);
     unset($admin_password);
 } else
 {
@@ -103,8 +135,18 @@ if(isset($_POST['pwd']) && $CONFIG_VAR['ADMIN_PWD'] === $_POST['pwd'])
         $CONFIG_VAR['DB_PWD'] = $_POST['db_pwd'];
         $CONFIG_VAR['MUSIC_DIR_ROOT'] = $_POST['music_dir_root'];
         $CONFIG_VAR['ACCESS_PWD'] = $_POST['access_pwd_param'];
+        if(!check_db_connectable($CONFIG_VAR['DB_ADDR'], $CONFIG_VAR['DB_PORT'], $CONFIG_VAR['DB_USER'], $CONFIG_VAR['DB_PWD'], $CONFIG_VAR['DB_DB']))
+        {
+            client_error("Could not connect to database");
+            exit(0);
+        }
+        if(0 == strlen($CONFIG_VAR['MUSIC_DIR_ROOT']) || !is_dir($CONFIG_VAR['MUSIC_DIR_ROOT']) || '/' == $CONFIG_VAR['MUSIC_DIR_ROOT'][strlen($CONFIG_VAR['MUSIC_DIR_ROOT']) - 1])
+        {
+            clien_error("Invalid MUSIC_DIR_ROOT");
+            exit(0);
+        }
         $CONFIG_VAR['setup_complete'] = "true";
-        write_ini_file($CONFIG_VAR, $CONFIG_FILE);
+        write_config_file($CONFIG_VAR, $CONFIG_FILE);
         echo "entered into config.ini!";
     } else
     {
@@ -118,7 +160,7 @@ if(isset($_POST['pwd']) && $CONFIG_VAR['ADMIN_PWD'] === $_POST['pwd'])
         echo "<label for=\"db_user\">Database user:</label><input type=\"text\" id=\"db_user\" name=\"db_user\" size=\"25\"/><br/>\n";
         echo "<label for=\"db_pwd\">Database password:</label><input type=\"text\" id=\"db_pwd\" name=\"db_pwd\" size=\"25\"/><br/>\n";
         echo "<label for=\"music_dir_root\">Music dir root:</label><input type=\"text\" id=\"music_dir_root\" name=\"music_dir_root\" size=\"25\"/><br/>\n";
-        echo "<label for=\"access_pwd_param\">Database password:</label><input type=\"text\" id=\"access_pwd_param\" name=\"access_pwd_param\" size=\"25\"/><br/>\n";
+        echo "<label for=\"access_pwd_param\">Access password:</label><input type=\"text\" id=\"access_pwd_param\" name=\"access_pwd_param\" size=\"25\"/><br/>\n";
         echo "<input type=\"submit\" />";
         echo "</form>\n";
     }

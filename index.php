@@ -1,6 +1,7 @@
 <?php
 /*
  * Steps:
+ * 0.9 check password
  * 1a check if database exists
  * 1b if not: create database/tables
  * 1c handle ajax
@@ -12,20 +13,26 @@
  *
  * TODO: handle each and every mysql query: log mysql errors to a file
  */
-$CONFIG_FILE = 'config.ini';
+$CONFIG_FILE = 'config.php';
 $CONFIG_VAR = NULL;
 $do_setup = true;
 $cur_time = time();
 
 class MinimalisticFile {
     public $path = '';
+    public $fullpath = '';
     public $name = '';
     public $size = 0;
     public function __construct($basedir, $filename)
     {
-        $this->path = $basedir . $filename; 
+        global $CONFIG_VAR;
+        $this->fullpath = $basedir . $filename; 
+        if(isset($CONFIG_VAR['MUSIC_DIR_ROOT']))
+        {
+            $this->path = substr($this->fullpath, strlen($CONFIG_VAR['MUSIC_DIR_ROOT']) + 1);
+        }
         $this->name = $filename;
-        $this->size = filesize($this->path);
+        $this->size = filesize($this->fullpath);
     }
 }
 function js_escape($source_str)
@@ -87,7 +94,7 @@ function flush_files_to_db($dbcon, $files_to_insert)
 
 if( file_exists($CONFIG_FILE))
 {
-    $CONFIG_VAR = parse_ini_file($CONFIG_FILE);
+    require_once($CONFIG_FILE);
     if(isset($CONFIG_VAR['setup_complete']) && $CONFIG_VAR['setup_complete'])
     {
         $do_setup = false;
@@ -119,14 +126,18 @@ if(!isset($CONFIG_VAR['DB_ADDR'])
     exit(0);
 }
 
+//step 0.9 check password
 $access_granted = false;
+$access_setcookie = false;
 if(isset($_GET['access_pwd']) && 0 === strcmp($CONFIG_VAR['ACCESS_PWD'], $_GET['access_pwd']))
 {
     $access_granted = true;
+    $access_setcookie = true;
 }
 if(isset($_POST['access_pwd']) && 0 === strcmp($CONFIG_VAR['ACCESS_PWD'], $_POST['access_pwd']))
 {
     $access_granted = true;
+    $access_setcookie = true;
 }
 if(isset($_COOKIE['access_pwd']) && 0 === strcmp($CONFIG_VAR['ACCESS_PWD'], $_COOKIE['access_pwd']))
 {
@@ -134,7 +145,10 @@ if(isset($_COOKIE['access_pwd']) && 0 === strcmp($CONFIG_VAR['ACCESS_PWD'], $_CO
 }
 if($access_granted)
 {
-    setcookie('access_pwd', $CONFIG_VAR['ACCESS_PWD'], time() + 86400 * 7);
+    if($access_setcookie)
+    {
+        setcookie('access_pwd', $CONFIG_VAR['ACCESS_PWD'], time() + 86400 * 7);
+    }
 } else
 {
 ?>
@@ -272,7 +286,7 @@ if($need_create_table)
 }
 
 //step 1c, handle ajax
-$AJAX_PAGE_LIMIT = 100;
+$AJAX_PAGE_LIMIT = 25;
 if(isset($_GET['ajax']))
 {
     if(isset($_GET['matching_tracks']))
@@ -295,7 +309,7 @@ if(isset($_GET['ajax']))
             }
             $search_subject = $dbcon->real_escape_string($search_subject);
             $count_matches = 0;
-            $result_matches = @$dbcon->query('SELECT COUNT(`id`) as \'count_matches\' FROM `filecache` WHERE `path_str` LIKE \'%' . $search_subject . '%\'');
+            $result_matches = @$dbcon->query('SELECT COUNT(`id`) as \'count_matches\' FROM `filecache` WHERE `valid`=\'Y\' AND `path_str` LIKE \'%' . $search_subject . '%\'');
             if(!(FALSE === $result_matches))
             {
                 $count_matches = $result_matches->fetch_assoc();
@@ -303,7 +317,7 @@ if(isset($_GET['ajax']))
             }
             if(0 < $count_matches)
             {
-                $result_matches = @$dbcon->query('SELECT `id`,`path_str` FROM `filecache` WHERE `path_str` LIKE \'%' . $search_subject . '%\' ORDER BY `path_str` ASC LIMIT ' . $search_offset . ',' . $AJAX_PAGE_LIMIT);
+                $result_matches = @$dbcon->query('SELECT `id`,`path_str` FROM `filecache` WHERE `valid`=\'Y\' AND `path_str` LIKE \'%' . $search_subject . '%\' ORDER BY `path_str` ASC LIMIT ' . $search_offset . ',' . $AJAX_PAGE_LIMIT);
                 if(!(FALSE === $result_matches))
                 {
                     echo "{\n\"success\": true,\n\"countMatches\":";
@@ -332,9 +346,10 @@ if(isset($_GET['ajax']))
             if(!(FALSE === $result_raw) && 0 < $result_raw->num_rows)
             {
                 $result_row = $result_raw->fetch_assoc();
-                if('Y' == $result_row['valid'] && file_exists($result_row['path_str']))
+                $result_path = $CONFIG_VAR['MUSIC_DIR_ROOT'] . '/' . $result_row['path_str'];
+                if('Y' == $result_row['valid'] && file_exists($result_path))
                 {
-                    $target_data = file_get_contents($result_row['path_str']);
+                    $target_data = file_get_contents($result_path);
                     header('Content-Type: audio/mp3');
                     echo $target_data;
                 }
