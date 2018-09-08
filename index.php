@@ -408,7 +408,7 @@ if(isset($_GET['ajax']))
     } else if(isset($_GET['request_playlist']))
     {
         $playlist_id = (int) $_GET['request_playlist'];
-        $result = @$dbcon->query('SELECT `filecache`.`id` AS \'id\', \'file\' AS \'type\', `filecache`.`path_str` AS \'name\' FROM `playlists` INNER JOIN `relation_playlists` ON `playlists`.`id`=`relation_playlists`.`pid` INNER JOIN `filecache` ON `relation_playlists`.`fid`=`filecache`.`id` WHERE `playlists`.`id`=' . $playlist_id);
+        $result = @$dbcon->query('SELECT `filecache`.`id` AS \'id\', \'file\' AS \'type\', `filecache`.`path_str` AS \'name\' FROM `playlists` INNER JOIN `relation_playlists` ON `playlists`.`id`=`relation_playlists`.`pid` INNER JOIN `filecache` ON `relation_playlists`.`fid`=`filecache`.`id` WHERE `playlists`.`id`=' . $playlist_id . ' ORDER BY `relation_playlists`.`prank` ASC');
         if(!(FALSE === $result))
         {
           echo "{\n\"success\": true,\n\"matches\": [";
@@ -599,6 +599,7 @@ function PlaylistClass()
   this.htmlTrackCount = 0;
   this.tracks = new Array();
   this.offset = 0;
+  this.previousId = -1;
   this.assumePlaylist = function()
   {
     if(playlistEle)
@@ -707,17 +708,24 @@ function PlaylistClass()
     }
     if(this.offset < this.tracks.length)
     {
-      var requestUrl = "?ajax&request_track=" + this.tracks[this.offset].id;
-      audioPlayer.pause();
-      audioPlayer.setAttribute("src", requestUrl);
-      audioPlayer.preload = "auto";
+      if(this.previousId != this.tracks[this.offset].id)
+      {
+        var requestUrl = "?ajax&request_track=" + this.tracks[this.offset].id;
+        audioPlayer.pause();
+        audioPlayer.setAttribute("src", requestUrl);
+        audioPlayer.preload = "auto";
+        juffImgEle.setAttribute("src", "country.png");
+        juffImgEle.setAttribute("width", "170");
+        juffImgEle.setAttribute("height", "200");
+      } else
+      {
+        audioPlayer.currentTime = 0;
+      }
       audioPlayer.play();
       removeChilds(audioCaption);
       audioCaption.appendChild(document.createTextNode(this.tracks[this.offset].beautifiedName));
-      juffImgEle.setAttribute("src", "country.png");
-      juffImgEle.setAttribute("width", "170");
-      juffImgEle.setAttribute("height", "200");
       this.scrollTo(this.offset);
+      this.previousId = this.tracks[this.offset].id;
     }
   }
   this.advance = function(direction)
@@ -739,7 +747,19 @@ function PlaylistClass()
     this.offset = 0;
     this.tracks = new Array();
     this.htmlTrackCount = 0;
+    removeChilds(audioCaption);
     removeChilds(this.boundHtml);
+    audioPlayer.pause();
+    this.previousId = -1;
+    audioPlayer.preload = "none";
+    /* this causes firefox to complain
+     * "Invalid URI. Load of media resource  failed."
+     * however, I don't know how to tell firefox to forget
+     * what was stored in an audio element. Although I have
+     * tried using the recommended DOM-way by adding <source>
+     * elements, that does not work either.
+     */
+    audioPlayer.setAttribute("src", "");
   }
   this.fetchPlaylist = function(playlistId, playlistName, enqueueWhere)
   {
