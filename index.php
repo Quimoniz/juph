@@ -561,7 +561,7 @@ function PlaylistClass()
     var trackEle = document.createElement("div");
     if(position == this.offset)
     {
-      trackEle.setAttribute("class", "playlist_selected_element");
+      trackEle.setAttribute("class", "playlist_element playlist_selected_element");
     } else
     {
       trackEle.setAttribute("class", "playlist_element");
@@ -580,6 +580,21 @@ function PlaylistClass()
       }
     }
     this.htmlTrackCount++;
+  }
+  this.scrollTo = function(offset)
+  {
+    if(this.boundHtml)
+    {
+      var cumulativeHeight = 0;
+      for(var i = 0; i < offset; ++i)
+      {
+        cumulativeHeight += this.boundHtml.childNodes[i].offsetHeight;
+      }
+      this.boundHtml.scrollTo({
+        top: cumulativeHeight,
+        left: 0,
+        behavior: "smooth"});
+    }
   }
   this.length = function()
   {
@@ -611,6 +626,7 @@ function PlaylistClass()
       removeChilds(audioCaption);
       audioCaption.appendChild(document.createTextNode(this.tracks[this.offset].name));
       juffImgEle.setAttribute("src", "country.png");
+      this.scrollTo(this.offset);
     }
   }
   this.advance = function(direction)
@@ -693,9 +709,11 @@ function Tracklist(tracklistJSON)
           showPages.push(maxPages - 1);
         }
         var pageNumEle = document.createElement("div");
+        pageNumEle.setAttribute("class", "paging_wrapper");
         for(var i = 0; i < showPages.length; ++i)
         {
           var fillerEle = document.createElement("span");
+          fillerEle.setAttribute("class", "paging_filler");
           if(0 < i && 1 < Math.abs(showPages[i] - showPages[i - 1]))
           {
             fillerEle.appendChild(document.createTextNode(" ... "));
@@ -705,6 +723,10 @@ function Tracklist(tracklistJSON)
           }
           pageNumEle.appendChild(fillerEle);
           var curPageNumEle = document.createElement("a");
+          var className = "paging_button";
+          if(0 == i) className += " paging_button_first";
+          if((showPages.length - 1) == i) className += " paging_button_last";
+          curPageNumEle.setAttribute("class", className);
           if(showPages[i] != curPage)
           {
             curPageNumEle.setAttribute("href", "javascript:ajax_matching_tracks(searchField.value," + showPages[i] * this.pageLimit + ")");
@@ -712,6 +734,9 @@ function Tracklist(tracklistJSON)
           curPageNumEle.appendChild(document.createTextNode("" + (showPages[i] + 1)));
           pageNumEle.appendChild(curPageNumEle);
         }
+        var trailingEle = document.createElement("span");
+        trailingEle.setAttribute("class", "paging_trailing");
+        pageNumEle.appendChild(trailingEle);
         searchListWrapper.appendChild(pageNumEle);
       }
     }
@@ -774,8 +799,18 @@ function beautifySongName(filename)
   var beautified = filename.replace(/\.[a-zA-Z0-9]{1,6}$/, "");
   beautified = beautified.replace(/_id[-_a-zA-Z0-9]{4,15}$/, "");
   beautified = beautified.replace(/_/g, " ");
+  beautified = beautified.replace(/ HD$/i, "");
+  beautified = beautified.replace(/Official Music Video$/i, "");
+  beautified = beautified.replace(/Music Video$/i, "");
+  beautified = beautified.replace(/Official Video$/i, "");
+  beautified = beautified.replace(/Official Video HQ$/i, "");
+  beautified = beautified.replace(/Original HQ$/i, "");
+  beautified = beautified.replace(/Official Video VOD$/i, "");
+  beautified = beautified.replace(/Videoclip$/i, "");
+  beautified = beautified.replace(/\(official\) /i, "");
   var withoutLeadingNumbers = beautified.replace(/^[0-9]{1,4} ?(- )?/, "");
   if(1 < withoutLeadingNumbers.length)  beautified = withoutLeadingNumbers;
+  beautified = beautified.replace(/^[-~.] /, "");
   return beautified;
 }
 document.addEventListener("DOMContentLoaded", init);
@@ -797,38 +832,99 @@ document.addEventListener("DOMContentLoaded", init);
   width: 100%;
   background-image: url(looking-glass.png);
   background-repeat: no-repeat;
-  background-position: calc(100% - 20px) 0px;
+  background-position: calc(100% - 10px) 0px;
+  border-width: 4px;
+  border-radius: 3px;
 }
 .search_list_wrapper {
 }
 .search_list_element {
-  border: 2px solid #e0e0e0;
+  border-bottom: 2px solid #e0e0e0;
+  margin: 0.4em 0em 0.4em 0em;
+  padding: 0em 0em 0em 0.3em;
   overflow: hidden;
+}
+.search_label {
+  font-size: 14pt;
 }
 .search_list_link:link, .search_list_link:visited {
   color: #000000;
   text-decoration: none;
 }
+.paging_wrapper {
+  font-family: Sans, Sans-Serif, Arial;
+}
+.paging_filler {
+  display: block;
+  float: left;
+  min-width: 1.5em;
+  text-align: center;
+}
+.paging_button {
+  display: block;
+  float: left;
+  min-width: 1.5em;
+  background-color: #e8e8e8;
+  /*margin: 0em 0.2em 0em 0.2em;*/
+  padding: 0.1em;
+  text-align: center;
+  color: #000000;
+  font-weight: bold;
+  border-left:  3px solid #d0d0d0;
+  border-right: 3px solid #d0d0d0;
+}
+.paging_button_first {
+  display: block;
+  margin-left: 0em;
+  border-left: none;
+  border-top-left-radius: 7px;
+  border-bottom-left-radius: 7px;
+}
+.paging_button_last {
+  display: block;
+  border-right: none;
+  border-top-right-radius: 7px;
+  border-bottom-right-radius: 7px;
+}
+.paging_button:link, .paging_button:visited {
+  text-decoration: none;
+  color: #606060;
+  font-weight: normal;
+}
+.paging_trailing {
+  display: block;
+  clear: both;
+  width: 0px;
+  height: 0px;
+  margin: 0px;
+}
 #audio_caption {
   font-size: 20pt;
   font-weight: bold;
+  min-height: 20px;
+}
+#audio_player {
+  width: 100%;
 }
 .playlist {
   height: 200px;
+  overflow: auto;
 }
 .playlist_link:link, .playlist_link:visited {
   color: #000000;
   text-decoration: none;
 }
 .playlist_element {
-  border: 1px solid #ffffff;
+  border-bottom: 2px solid #a0a0a0;
   background-color: #000000;
-  color: #ffffff;
+  color: #e0e0e0;
   overflow: hidden;
+  padding: 0.15em 0em 0.15em 0.1em;
 }
 .playlist_selected_element {
   color: #000000;
   background-color: #ffffff;
+  background-image: linear-gradient(to bottom, #ffffff 0%, #e8e8e8 85%, #a0a0a0 100%);
 }
 .playlist_selected_element::before {
   content: "▶ ";
@@ -846,6 +942,7 @@ document.addEventListener("DOMContentLoaded", init);
 </div>
 </div>
 <div class="right_wrapper">
+<label for="search_input" class="search_label">Suche</label><br/>
 <input type="text" id="search_input" class="search_input" size="20" />
 <div id="search_list_wrapper" class="search_list_wrapper">
 </div>
