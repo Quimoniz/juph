@@ -5,35 +5,6 @@
 //3. if password is correct and configuration options are given,
 //   then write out complete config.ini file, setup mysql-database
 
-function write_ini_file ($ini_array, $dst_file)
-{
-        $write_buf="";
-        if(is_array($ini_array))
-        {   
-                foreach($ini_array as $childKey => $childValue)
-                {   
-                        $write_buf .= ini_pair_to_str($childKey, $childValue);
-                }   
-        }
-        $fp=fopen($dst_file, 'w');
-        fwrite($fp, $write_buf);
-        fclose($fp);
-}
-function ini_pair_to_str ($ini_key, $ini_val)
-{
-        $ini_buf = $ini_key;
-        $ini_buf .= "=";
-        if (is_numeric($ini_val))
-        {   
-                $ini_buf .= $ini_val;
-        } else if (0 < strlen('' . $ini_val))
-        {   
-                $ini_buf .= '"' . $ini_val . '"';
-        }   
-        $ini_buf .= "\r\n";
-
-        return $ini_buf;
-}
 function write_config_file($config_var, $dst_file)
 {
     $fp = fopen($dst_file, "w");
@@ -80,31 +51,7 @@ if(!file_exists($CONFIG_FILE))
     $admin_password = '';
     //use chr(int val) to generate char from int
     //use rand(int min, int max) to generate random number
-    function gen_pwd($pwd_len = 15)
-    {
-        $chr_grp = array(array(35,38),array(48,57),array(58,63),array(65,90),array(97,122));
-        $chr_used_grp = array(0,0,0,0,0);
-        $out_pwd = '';
-        for($i = 0; $i < $pwd_len; $i++)
-        {
-            $which_grp = rand(0, count($chr_grp) - 1);
-            if($i >= $pwd_len)
-            {
-                for($j = 0; $j < 5; $j++)
-                {
-                    if(0 == $chr_used_grp)
-                    {
-                        $which_grp = $j;
-                        break;
-                    }
-                }
-            }
-            $chr_used_grp[$which_grp]++;
-            $out_pwd = $out_pwd . chr(rand($chr_grp[$which_grp][0], $chr_grp[$which_grp][1]));
-        }
-        return $out_pwd;
-    }
-    $admin_password = gen_pwd(15);
+    $admin_password = gen_pwd(15, true);
     touch($CONFIG_FILE);
     chmod($CONFIG_FILE, 0740);
     $CONFIG_VAR = array( "ADMIN_PWD" => $admin_password);

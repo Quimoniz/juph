@@ -17,7 +17,41 @@ $CONFIG_FILE = 'config.php';
 $CONFIG_VAR = NULL;
 $do_setup = true;
 $cur_time = time();
+$SESSION_ID = '';
 
+function gen_pwd($pwd_len = 15, $use_special_chars = true)
+{
+    $chr_grp = array(array(48,57),array(65,91),array(97,123));
+    $chr_used_grp = array(0,0,0);
+    if($use_special_chars)
+    {
+        $chr_grp[] = array(35,48);
+        $chr_grp[] = array(58,63);
+        $chr_grp[] = array(91,97);
+        $chr_used_grp[] = 0;
+        $chr_used_grp[] = 0;
+        $chr_used_grp[] = 0;
+    }
+    $out_pwd = '';
+    for($i = 0; $i < $pwd_len; $i++)
+    {
+        $which_grp = rand(0, count($chr_grp) - 1);
+        if($i >= $pwd_len)
+        {
+            for($j = 0; $j < 5; $j++)
+            {
+                if(0 == $chr_used_grp)
+                {
+                    $which_grp = $j;
+                    break;
+                }
+            }
+        }
+        $chr_used_grp[$which_grp]++;
+        $out_pwd = $out_pwd . chr(rand($chr_grp[$which_grp][0], $chr_grp[$which_grp][1]));
+    }
+    return $out_pwd;
+}
 class MinimalisticFile {
     public $path = '';
     public $fullpath = '';
@@ -149,6 +183,14 @@ if($access_granted)
     {
         setcookie('access_pwd', $CONFIG_VAR['ACCESS_PWD'], time() + 86400 * 7);
     }
+    if(isset($_COOKIE['session_id']))
+    {
+        $SESSION_ID = $_COOKIE['session_id'];
+    } else
+    {
+        $SESSION_ID = gen_pwd(25, false);
+    }
+    setcookie('session_id', $SESSION_ID, time() + 86400 * 30);
 } else
 {
 ?>
@@ -243,6 +285,7 @@ if($need_create_table)
     $create_sql .= '`fid` BIGINT NULL,';
     $create_sql .= '`pid` BIGINT NOT NULL,';
     $create_sql .= '`prank` BIGINT NOT NULL,';
+    $create_sql .= '`options` VARCHAR(1024) CHARACTER SET utf8 NULL DEFAULT \'{}\'';
     $create_sql .= 'KEY(`fid`,`pid`,`prank`),';
     $create_sql .= 'FOREIGN KEY fk_pfile(`fid`) ';
     $create_sql .= 'REFERENCES `filecache`(`id`) ';
@@ -309,15 +352,21 @@ if(isset($_GET['ajax']))
             }
             $search_subject = $dbcon->real_escape_string($search_subject);
             $count_matches = 0;
-            $result_matches = @$dbcon->query('SELECT COUNT(`id`) as \'count_matches\' FROM `filecache` WHERE `valid`=\'Y\' AND `path_str` LIKE \'%' . $search_subject . '%\'');
+            $result_matches = @$dbcon->query('SELECT COUNT(`id`) AS \'count_matches\' FROM `filecache` WHERE `valid`=\'Y\' AND `path_str` LIKE \'%' . $search_subject . '%\' UNION SELECT COUNT(`id`) AS \'count_matches\' FROM `playlists` WHERE `name` LIKE \'%' . $search_subject . '%\'');
             if(!(FALSE === $result_matches))
             {
-                $count_matches = $result_matches->fetch_assoc();
-                $count_matches = (int) $count_matches['count_matches'];
+                while($cur_row = $result_matches->fetch_assoc())
+                {
+                    $count_matches += (int) $cur_row['count_matches'];
+                }
+            } else
+            {
+                server_error('database query failure', true);
+                exit(0);
             }
             if(0 < $count_matches)
             {
-                $result_matches = @$dbcon->query('SELECT `id`,`path_str` FROM `filecache` WHERE `valid`=\'Y\' AND `path_str` LIKE \'%' . $search_subject . '%\' ORDER BY `path_str` ASC LIMIT ' . $search_offset . ',' . $AJAX_PAGE_LIMIT);
+                $result_matches = @$dbcon->query('(SELECT `id`,`path_str`, \'file\' AS \'type\' FROM `filecache` WHERE `valid`=\'Y\' AND `path_str` LIKE \'%' . $search_subject . '%\') UNION (SELECT `id`, `name`, \'playlist\' AS \'type\' FROM `playlists` WHERE `name` LIKE \'%' . $search_subject . '%\') ORDER BY `type` DESC, `path_str` ASC LIMIT ' . $search_offset . ',' . $AJAX_PAGE_LIMIT);
                 if(!(FALSE === $result_matches))
                 {
                     echo "{\n\"success\": true,\n\"countMatches\":";
@@ -327,7 +376,7 @@ if(isset($_GET['ajax']))
                     while($cur_row = $result_matches->fetch_assoc())
                     {
                         if(0 < $i) echo ",\n";
-                        echo "{ \"id\": " . $cur_row['id'] . ",\"name\": \"" . js_escape($cur_row['path_str']) . "\"}";
+                        echo "{ \"id\": " . $cur_row['id'] . ", \"type\": \"" . $cur_row['type'] . "\",\"name\": \"" . js_escape($cur_row['path_str']) . "\"}";
                         $i++;
                     }
                     echo "]\n}";
@@ -335,6 +384,7 @@ if(isset($_GET['ajax']))
             } else
             {
                 client_error('no query results', true);
+                exit(0);
             }
         }
     } else if(isset($_GET['request_track']))
@@ -354,6 +404,22 @@ if(isset($_GET['ajax']))
                     echo $target_data;
                 }
             }
+        }
+    } else if(isset($_GET['request_playlist']))
+    {
+        $playlist_id = (int) $_GET['request_playlist'];
+        $result = @$dbcon->query('SELECT `filecache`.`id` AS \'id\', \'file\' AS \'type\', `filecache`.`path_str` AS \'name\' FROM `playlists` INNER JOIN `relation_playlists` ON `playlists`.`id`=`relation_playlists`.`pid` INNER JOIN `filecache` ON `relation_playlists`.`fid`=`filecache`.`id` WHERE `playlists`.`id`=' . $playlist_id);
+        if(!(FALSE === $result))
+        {
+          echo "{\n\"success\": true,\n\"matches\": [";
+          for($i = 0; $cur_row = $result->fetch_assoc(); $i++)
+          {
+            if(0 < $i) echo ",\n";
+            echo "{ \"id\": " . $cur_row['id'] . ", \"type\": \"" . $cur_row['type'] . "\",\"name\": \"" . js_escape($cur_row['name']) . "\"}";
+          }
+          echo "]\n}";
+        } else {
+          server_error("Error when looking up playlist", false);
         }
     }
     exit(0);
@@ -375,7 +441,7 @@ if(!(FALSE === $result) && 0 < $result->num_rows)
 }
 
 //step 2b, do scan
-//TODO: test this section with detailed output of found files
+//DONE: tested this section with detailed output of found files
 if($need_scan_music_dir)
 {
     $scan_complete = False;
@@ -511,6 +577,7 @@ var playlistObj;
 var juffImgEle;
 var BODY;
 var contextMenu;
+var sessionId;
 function init()
 {
   searchField = document.getElementById("search_input");
@@ -524,6 +591,7 @@ function init()
   audioCaption = document.getElementById("audio_caption");
   juffImgEle = document.getElementById("juff_img");
   BODY = document.getElementsByTagName("body")[0];
+  sessionId = <?php echo "\"" . js_escape($SESSION_ID) . "\";";  ?>
 }
 function PlaylistClass()
 {
@@ -544,23 +612,35 @@ function PlaylistClass()
     this.boundHtml = myEle;
     playlistEle = myEle;
   }
-  this.enqueueLast = function(trackId, trackName)
+  this.enqueueLast = function(trackId, trackType, trackName)
   {
-    var newTrack = new TrackClass(trackId, trackName);
-    this.tracks.push(newTrack);
-    this.addTrackHtml(newTrack, this.tracks.length - 1);
-  }
-  this.enqueueNext = function(trackId, trackName)
-  {
-    var newTrack = new TrackClass(trackId, trackName);
-    if(this.tracks.length > (this.offset + 1))
+    if("file" == trackType)
     {
-      this.tracks.splice(this.offset + 1, 0, newTrack);
-    } else
-    {
+      var newTrack = new TrackClass(trackId, trackType, trackName);
       this.tracks.push(newTrack);
+      this.addTrackHtml(newTrack, this.tracks.length - 1);
+    } else if("playlist" == trackType)
+    {
+      this.fetchPlaylist(trackId, trackName, "last");
     }
-    this.addTrackHtml(newTrack, this.offset + 1);
+  }
+  this.enqueueNext = function(trackId, trackType, trackName)
+  {
+    if("file" == trackType)
+    {
+      var newTrack = new TrackClass(trackId, trackType, trackName);
+      if(this.tracks.length > (this.offset + 1))
+      {
+        this.tracks.splice(this.offset + 1, 0, newTrack);
+      } else
+      {
+        this.tracks.push(newTrack);
+      }
+      this.addTrackHtml(newTrack, this.offset + 1);
+    } else if("playlist" == trackType)
+    {
+      this.fetchPlaylist(trackId, trackName, "next");
+    }
   }
   this.addTrackHtml = function(trackObj, position)
   {
@@ -633,7 +713,7 @@ function PlaylistClass()
       audioPlayer.preload = "auto";
       audioPlayer.play();
       removeChilds(audioCaption);
-      audioCaption.appendChild(document.createTextNode(this.tracks[this.offset].name));
+      audioCaption.appendChild(document.createTextNode(this.tracks[this.offset].beautifiedName));
       juffImgEle.setAttribute("src", "country.png");
       juffImgEle.setAttribute("width", "170");
       juffImgEle.setAttribute("height", "200");
@@ -661,11 +741,38 @@ function PlaylistClass()
     this.htmlTrackCount = 0;
     removeChilds(this.boundHtml);
   }
+  this.fetchPlaylist = function(playlistId, playlistName, enqueueWhere)
+  {
+    var req = new XMLHttpRequest();
+    req.open("GET", "?ajax&request_playlist=" + encodeURIComponent(playlistId));
+    req.addEventListener("load", function(param) {
+      var responseJSON = JSON.parse(param.target.responseText);
+      if(responseJSON.success && responseJSON.matches)
+      {
+        for(var i = 0; i < responseJSON.matches.length; ++i)
+        {
+          if(enqueueWhere == "last") playlistObj.enqueueLast(responseJSON.matches[i].id, responseJSON.matches[i].type, responseJSON.matches[i].name);
+          else if(enqueueWhere == "next") playlistObj.enqueueNext(responseJSON.matches[i].id, responseJSON.matches[i].type, responseJSON.matches[i].name);
+        }
+      }
+    });
+    req.send();
+  }
 }
-function TrackClass(trackId, trackName)
+function TrackClass(trackId, trackType, trackName)
 {
   this.id = trackId;
+  this.type = trackType;
   this.name = trackName;
+  this.beautifiedName = this.name;
+  if("file" == this.type)
+  {
+    this.beautifiedName = basename(this.beautifiedName);
+    this.beautifiedName = beautifySongName(this.beautifiedName);
+  } else if("playlist" == this.type)
+  {
+    this.beautifiedName = "PL: " + this.name;
+  }
 }
 function search_keyup(eventObj)
 {
@@ -698,7 +805,7 @@ function Tracklist(tracklistJSON)
     this.pageLimit  = tracklistJSON.pageLimit;
     for(var i = 0; i < tracklistJSON.matches.length; ++i)
     {
-      this.tracks.push(new TrackClass(tracklistJSON.matches[i].id, tracklistJSON.matches[i].name));
+      this.tracks.push(new TrackClass(tracklistJSON.matches[i].id, tracklistJSON.matches[i].type, tracklistJSON.matches[i].name));
     }
   }
   this.assumeSearchList = function()
@@ -760,15 +867,13 @@ function Tracklist(tracklistJSON)
     }
     for(var i = 0; i < this.tracks.length; ++i)
     {
-      var fileBase = basename(this.tracks[i].name);
-      fileBase = beautifySongName(fileBase);
       var linkEle = document.createElement("a");
-      linkEle.setAttribute("href", "javascript:searchTrackLeftclicked(" + this.tracks[i].id + ", \"" + fileBase + "\")");
-      linkEle.addEventListener("contextmenu", function (listEle, trackId, trackName) { return function (evt) { evt.preventDefault(); searchTrackRightclicked(evt, listEle, trackId, trackName); }; }(linkEle, this.tracks[i].id, fileBase));
+      linkEle.setAttribute("href", "javascript:searchTrackLeftclicked(" + this.tracks[i].id + ", \"" + this.tracks[i].type + "\", \"" + this.tracks[i].name + "\")");
+      linkEle.addEventListener("contextmenu", function (listEle, trackId, trackType, trackName) { return function (evt) { evt.preventDefault(); searchTrackRightclicked(evt, listEle, trackId, trackType, trackName); }; }(linkEle, this.tracks[i].id, this.tracks[i].type, this.tracks[i].beautifiedName));
       linkEle.setAttribute("class", "search_list_link");
       var divEle = document.createElement("div");
       divEle.setAttribute("class", "search_list_element");
-      divEle.appendChild(document.createTextNode(fileBase));
+      divEle.appendChild(document.createTextNode(this.tracks[i].beautifiedName));
       linkEle.appendChild(divEle);
       searchListWrapper.appendChild(linkEle);
     }
@@ -801,7 +906,7 @@ function clearContextMenu()
     contextMenu = undefined;
   }
 }
-function searchTrackRightclicked(evt, listEle, trackId, trackName)
+function searchTrackRightclicked(evt, listEle, trackId, trackType, trackName)
 {
   if(contextMenu)
   {
@@ -816,7 +921,7 @@ function searchTrackRightclicked(evt, listEle, trackId, trackName)
   enqueueEle.appendChild(document.createTextNode("Enqueue"));
   enqueueEle.setAttribute("class", "search_context_element");
   enqueueEle.addEventListener("click", function(trackId,trackName){ return function(evt) {
-      playlistObj.enqueueLast(trackId, trackName);
+      playlistObj.enqueueLast(trackId, trackType, trackName);
       if(1 == playlistObj.length())
       {
         playlistObj.play();
@@ -828,7 +933,7 @@ function searchTrackRightclicked(evt, listEle, trackId, trackName)
   enqueueNextEle.appendChild(document.createTextNode("Enqueue Next"));
   enqueueNextEle.setAttribute("class", "search_context_element");
   enqueueNextEle.addEventListener("click", function(trackId,trackName){ return function(evt) {
-      playlistObj.enqueueNext(trackId, trackName);
+      playlistObj.enqueueNext(trackId, trackType, trackName);
       if(1 == playlistObj.length())
       {
         playlistObj.play();
@@ -841,7 +946,7 @@ function searchTrackRightclicked(evt, listEle, trackId, trackName)
   playEle.setAttribute("class", "search_context_element");
   playEle.addEventListener("click", function(trackId,trackName){ return function(evt) {
       playlistObj.clearPlaylist();
-      playlistObj.enqueueLast(trackId, trackName);
+      playlistObj.enqueueLast(trackId, trackType, trackName);
       playlistObj.play();
       clearContextMenu();
     }; }(trackId, trackName), false);
@@ -854,9 +959,9 @@ function searchTrackRightclicked(evt, listEle, trackId, trackName)
   
   contextMenu = BODY.appendChild(contextWrapper);
 }
-function searchTrackLeftclicked(trackId, trackName)
+function searchTrackLeftclicked(trackId, trackType, trackName)
 {
-  playlistObj.enqueueLast(trackId, trackName);
+  playlistObj.enqueueLast(trackId, trackType, trackName);
   if(1 == playlistObj.length())
   {
     playlistObj.play();
@@ -880,6 +985,7 @@ function beautifySongName(filename)
   beautified = beautified.replace(/_id[-_a-zA-Z0-9]{4,15}$/, "");
   beautified = beautified.replace(/_/g, " ");
   beautified = beautified.replace(/ HD$/i, "");
+  beautified = beautified.replace(/ []$/, "");
   beautified = beautified.replace(/Official Music Video$/i, "");
   beautified = beautified.replace(/Music Video$/i, "");
   beautified = beautified.replace(/Official Video$/i, "");
@@ -890,7 +996,7 @@ function beautifySongName(filename)
   beautified = beautified.replace(/\(official\) /i, "");
   var withoutLeadingNumbers = beautified.replace(/^[0-9]{1,4} ?(- )?/, "");
   if(1 < withoutLeadingNumbers.length)  beautified = withoutLeadingNumbers;
-  beautified = beautified.replace(/^[-~.] /, "");
+  beautified = beautified.replace(/^[-~.] */, "");
   return beautified;
 }
 document.addEventListener("DOMContentLoaded", init);
