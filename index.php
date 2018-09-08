@@ -509,6 +509,8 @@ var sessionPlaylist;
 var playlistEle;
 var playlistObj;
 var juffImgEle;
+var BODY;
+var contextMenu;
 function init()
 {
   searchField = document.getElementById("search_input");
@@ -521,6 +523,7 @@ function init()
   audioPlayer.addEventListener("ended", playlistObj.playNext);
   audioCaption = document.getElementById("audio_caption");
   juffImgEle = document.getElementById("juff_img");
+  BODY = document.getElementsByTagName("body")[0];
 }
 function PlaylistClass()
 {
@@ -550,8 +553,14 @@ function PlaylistClass()
   this.enqueueNext = function(trackId, trackName)
   {
     var newTrack = new TrackClass(trackId, trackName);
-    this.tracks.splice(this.offset, 0, new TrackClass(trackId, trackName));
-    this.addTrackHtml(newTrack, this.offset);
+    if(this.tracks.length > (this.offset + 1))
+    {
+      this.tracks.splice(this.offset + 1, 0, newTrack);
+    } else
+    {
+      this.tracks.push(newTrack);
+    }
+    this.addTrackHtml(newTrack, this.offset + 1);
   }
   this.addTrackHtml = function(trackObj, position)
   {
@@ -626,6 +635,8 @@ function PlaylistClass()
       removeChilds(audioCaption);
       audioCaption.appendChild(document.createTextNode(this.tracks[this.offset].name));
       juffImgEle.setAttribute("src", "country.png");
+      juffImgEle.setAttribute("width", "170");
+      juffImgEle.setAttribute("height", "200");
       this.scrollTo(this.offset);
     }
   }
@@ -642,6 +653,13 @@ function PlaylistClass()
   {
     playlistObj.advance(1);
     playlistObj.play();
+  }
+  this.clearPlaylist = function()
+  {
+    this.offset = 0;
+    this.tracks = new Array();
+    this.htmlTrackCount = 0;
+    removeChilds(this.boundHtml);
   }
 }
 function TrackClass(trackId, trackName)
@@ -746,6 +764,7 @@ function Tracklist(tracklistJSON)
       fileBase = beautifySongName(fileBase);
       var linkEle = document.createElement("a");
       linkEle.setAttribute("href", "javascript:searchTrackLeftclicked(" + this.tracks[i].id + ", \"" + fileBase + "\")");
+      linkEle.addEventListener("contextmenu", function (listEle, trackId, trackName) { return function (evt) { evt.preventDefault(); searchTrackRightclicked(evt, listEle, trackId, trackName); }; }(linkEle, this.tracks[i].id, fileBase));
       linkEle.setAttribute("class", "search_list_link");
       var divEle = document.createElement("div");
       divEle.setAttribute("class", "search_list_element");
@@ -773,6 +792,67 @@ function process_matching_tracks(responseText)
     currentTracklist = new Tracklist(responseJSON);
     currentTracklist.assumeSearchList();
   }
+}
+function clearContextMenu()
+{
+  if(contextMenu)
+  {
+    contextMenu.parentNode.removeChild(contextMenu);
+    contextMenu = undefined;
+  }
+}
+function searchTrackRightclicked(evt, listEle, trackId, trackName)
+{
+  if(contextMenu)
+  {
+    clearContextMenu();
+  }
+  var contextWrapper = document.createElement("div");
+  contextWrapper.style.position = "absolute";
+  contextWrapper.style.top = evt.pageY;
+  contextWrapper.style.left = evt.pageX;
+  contextWrapper.setAttribute("class", "search_context_wrapper");
+  var enqueueEle = document.createElement("div");
+  enqueueEle.appendChild(document.createTextNode("Enqueue"));
+  enqueueEle.setAttribute("class", "search_context_element");
+  enqueueEle.addEventListener("click", function(trackId,trackName){ return function(evt) {
+      playlistObj.enqueueLast(trackId, trackName);
+      if(1 == playlistObj.length())
+      {
+        playlistObj.play();
+      }
+      clearContextMenu();
+    }; }(trackId, trackName), false);
+  contextWrapper.appendChild(enqueueEle);
+  var enqueueNextEle = document.createElement("div");
+  enqueueNextEle.appendChild(document.createTextNode("Enqueue Next"));
+  enqueueNextEle.setAttribute("class", "search_context_element");
+  enqueueNextEle.addEventListener("click", function(trackId,trackName){ return function(evt) {
+      playlistObj.enqueueNext(trackId, trackName);
+      if(1 == playlistObj.length())
+      {
+        playlistObj.play();
+      }
+      clearContextMenu();
+    }; }(trackId, trackName), false);
+  contextWrapper.appendChild(enqueueNextEle);
+  var playEle = document.createElement("div");
+  playEle.appendChild(document.createTextNode("Play"));
+  playEle.setAttribute("class", "search_context_element");
+  playEle.addEventListener("click", function(trackId,trackName){ return function(evt) {
+      playlistObj.clearPlaylist();
+      playlistObj.enqueueLast(trackId, trackName);
+      playlistObj.play();
+      clearContextMenu();
+    }; }(trackId, trackName), false);
+  contextWrapper.appendChild(playEle);
+  var dismissEle = document.createElement("div");
+  dismissEle.appendChild(document.createTextNode(" X "));
+  dismissEle.setAttribute("class", "search_context_element");
+  dismissEle.addEventListener("click", clearContextMenu, false);
+  contextWrapper.appendChild(dismissEle);
+  
+  contextMenu = BODY.appendChild(contextWrapper);
 }
 function searchTrackLeftclicked(trackId, trackName)
 {
@@ -841,8 +921,27 @@ document.addEventListener("DOMContentLoaded", init);
 .search_list_element {
   border-bottom: 2px solid #e0e0e0;
   margin: 0.4em 0em 0.4em 0em;
-  padding: 0em 0em 0em 0.3em;
+  padding: 0em 0em 0.2em 0.3em;
   overflow: hidden;
+}
+.search_context_wrapper {
+  font-family: Sans, Sans-Serif, Arial;
+  width: 8em;
+  height: 8em;
+  border: 3px solid #808080;
+  border-radius: 10px;
+  background-color: #ffffff;
+  overflow: hidden;
+}
+.search_context_element {
+  background-color: #f0f0f0;
+  padding: 0.3em;
+  margin: 0em 0em 0.2em 0em;
+  border-radius: 10px;
+}
+.search_context_element:hover {
+  background-color: #505050;
+  color: #f0f0f0;
 }
 .search_label {
   font-size: 14pt;
@@ -902,6 +1001,7 @@ document.addEventListener("DOMContentLoaded", init);
   font-size: 20pt;
   font-weight: bold;
   min-height: 20px;
+  margin: 0.1em 0em 0.3em 0em;
 }
 #audio_player {
   width: 100%;
@@ -933,7 +1033,7 @@ document.addEventListener("DOMContentLoaded", init);
 <body>
 <div class="content_wrapper">
 <div class="left_wrapper">
-<img id="juff_img" src="logo.png" alt="juph logo"/><br/>
+<img id="juff_img" src="logo.png" width="178" height="200" alt="juph logo"/><br/>
 <div id="audio_caption">
 </div>
 <audio id="audio_player" controls>
