@@ -596,6 +596,8 @@ function init()
 function PlaylistClass()
 {
   this.boundHtml;
+  this.listHtml;
+  this.optionsHtml;
   this.htmlTrackCount = 0;
   this.tracks = new Array();
   this.offset = 0;
@@ -612,6 +614,12 @@ function PlaylistClass()
     this.htmlTrackCount = 0;
     this.boundHtml = myEle;
     playlistEle = myEle;
+    this.listHtml = document.createElement("div");
+    this.listHtml.setAttribute("class", "playlist_list");
+    this.listHtml = this.boundHtml.appendChild(this.listHtml);
+    this.optionsHtml = document.createElement("div");
+    this.optionsHtml.setAttribute("class", "playlist_options");
+    this.optionsHtml = this.boundHtml.appendChild(this.optionsHtml);
   }
   this.enqueueLast = function(trackId, trackType, trackName)
   {
@@ -660,27 +668,30 @@ function PlaylistClass()
     trackLink.appendChild(trackEle);
     if(position == (this.htmlTrackCount + 1))
     {
-      this.boundHtml.appendChild(trackLink);
+      this.listHtml.appendChild(trackLink);
     } else
     {
-      this.boundHtml.insertBefore(trackLink, this.boundHtml.childNodes[position]);
-      for(var i = position + 1; i < this.boundHtml.childNodes.length; ++i)
+      this.listHtml.insertBefore(trackLink, this.listHtml.childNodes[position]);
+      for(var i = position + 1; i < this.listHtml.childNodes.length; ++i)
       {
-        this.boundHtml.childNodes[i].setAttribute("href", "javascript:playlistObj.playOffset(" + i + ")");
+        this.listHtml.childNodes[i].setAttribute("href", "javascript:playlistObj.playOffset(" + i + ")");
       }
     }
     this.htmlTrackCount++;
   }
   this.scrollTo = function(offset)
   {
-    if(this.boundHtml)
+    if(this.listHtml)
     {
       var cumulativeHeight = 0;
       for(var i = 0; i < offset; ++i)
       {
-        cumulativeHeight += this.boundHtml.childNodes[i].offsetHeight;
+        //need to get the height of the "div"-element (i.e. firstChild),
+        //because chrome refuses to report a height
+        //for the surrounding "a"-element
+        cumulativeHeight += this.listHtml.childNodes[i].firstChild.offsetHeight;
       }
-      this.boundHtml.scrollTo({
+      this.listHtml.scrollTo({
         top: cumulativeHeight,
         left: 0,
         behavior: "smooth"});
@@ -694,9 +705,9 @@ function PlaylistClass()
   {
     if(-1 < newOffset && newOffset < playlistObj.tracks.length)
     {
-      this.boundHtml.childNodes[this.offset].firstChild.setAttribute("class", "playlist_element");
+      this.listHtml.childNodes[this.offset].firstChild.setAttribute("class", "playlist_element");
       playlistObj.offset = newOffset;
-      this.boundHtml.childNodes[this.offset].firstChild.setAttribute("class", "playlist_element playlist_selected_element");
+      this.listHtml.childNodes[this.offset].firstChild.setAttribute("class", "playlist_element playlist_selected_element");
     }
     playlistObj.play();
   }
@@ -732,9 +743,9 @@ function PlaylistClass()
   {
     if(0 != direction)
     {
-      this.boundHtml.childNodes[this.offset].firstChild.setAttribute("class", "playlist_element");
+      this.listHtml.childNodes[this.offset].firstChild.setAttribute("class", "playlist_element");
       this.offset = (this.offset + direction) % this.tracks.length;
-      this.boundHtml.childNodes[this.offset].firstChild.setAttribute("class", "playlist_element playlist_selected_element");
+      this.listHtml.childNodes[this.offset].firstChild.setAttribute("class", "playlist_element playlist_selected_element");
     }
   }
   this.playNext = function()
@@ -748,7 +759,7 @@ function PlaylistClass()
     this.tracks = new Array();
     this.htmlTrackCount = 0;
     removeChilds(audioCaption);
-    removeChilds(this.boundHtml);
+    removeChilds(this.listHtml);
     audioPlayer.pause();
     this.previousId = -1;
     audioPlayer.preload = "none";
@@ -1168,7 +1179,7 @@ document.addEventListener("DOMContentLoaded", init);
 </div>
 </div>
 <div class="right_wrapper">
-<label for="search_input" class="search_label">Suche</label><br/>
+<label for="search_input" class="search_label">Suche:</label><br/>
 <input type="text" id="search_input" class="search_input" size="20" />
 <div id="search_list_wrapper" class="search_list_wrapper">
 </div>
