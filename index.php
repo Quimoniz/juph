@@ -587,7 +587,7 @@ function init()
   playlistWrapper = document.getElementById("playlist_wrapper");
   playlistObj = new PlaylistClass();
   playlistObj.assumePlaylist();
-  audioPlayer.addEventListener("ended", playlistObj.playNext);
+  audioPlayer.addEventListener("ended", playlistObj.trackEnded);
   audioCaption = document.getElementById("audio_caption");
   juffImgEle = document.getElementById("juff_img");
   BODY = document.getElementsByTagName("body")[0];
@@ -602,6 +602,7 @@ function PlaylistClass()
   this.tracks = new Array();
   this.offset = 0;
   this.previousId = -1;
+  this.loop = "none";
   this.assumePlaylist = function()
   {
     if(playlistEle)
@@ -618,8 +619,25 @@ function PlaylistClass()
     this.listHtml.setAttribute("class", "playlist_list");
     this.listHtml = this.boundHtml.appendChild(this.listHtml);
     this.optionsHtml = document.createElement("div");
-    this.optionsHtml.setAttribute("class", "playlist_options");
+    this.optionsHtml.setAttribute("class", "playlist_option_wrapper");
+    //add icons
+    var optionEle,imgEle;
+    var optionsImgs = new Array("loopone.png", "loopall.png", "save.png", "delete.png");
+    for(var i = 0; i < optionsImgs.length; ++i)
+    {
+      optionEle = document.createElement("div");
+      imgEle = document.createElement("img");
+      optionEle.setAttribute("class", "playlist_option_div");
+      imgEle.setAttribute("class", "playlist_option_img");
+      imgEle.setAttribute("src", optionsImgs[i]);
+      optionEle.appendChild(imgEle);
+      this.optionsHtml.appendChild(optionEle);
+    }
     this.optionsHtml = this.boundHtml.appendChild(this.optionsHtml);
+    this.optionsHtml.childNodes[0].addEventListener("click", function() { playlistObj.loopClicked("one"); } );
+    this.optionsHtml.childNodes[1].addEventListener("click", function() { playlistObj.loopClicked("all"); } );
+    this.optionsHtml.childNodes[2].addEventListener("click", playlistObj.clearPlaylist);
+    this.optionsHtml.childNodes[3].addEventListener("click", playlistObj.clearPlaylist);
   }
   this.enqueueLast = function(trackId, trackType, trackName)
   {
@@ -753,15 +771,55 @@ function PlaylistClass()
     playlistObj.advance(1);
     playlistObj.play();
   }
+  this.trackEnded = function()
+  {
+    if("none" == playlistObj.loop)
+    {
+      if((playlistObj.offset + 1) < playlistObj.tracks.length)
+      {
+        playlistObj.advance(1);
+      }
+    } else if("all" == playlistObj.loop)
+    {
+      playlistObj.advance(1);
+    } else if("one" == playlistObj.loop)
+    {
+      //don't advance offset
+    }
+    playlistObj.play();
+  }
+  this.loopClicked = function(loopStr)
+  {
+    if(loopStr == playlistObj.loop)
+    {
+      playlistObj.loop = "none";
+    } else {
+      playlistObj.loop = loopStr;
+    }
+
+    if("one" == playlistObj.loop)
+    {
+      playlistObj.optionsHtml.childNodes[0].setAttribute("class", "playlist_option_div playlist_option_div_selected");
+      playlistObj.optionsHtml.childNodes[1].setAttribute("class", "playlist_option_div");
+    } else if("all" == playlistObj.loop)
+    {
+      playlistObj.optionsHtml.childNodes[0].setAttribute("class", "playlist_option_div");
+      playlistObj.optionsHtml.childNodes[1].setAttribute("class", "playlist_option_div playlist_option_div_selected");
+    } else if("none" == playlistObj.loop)
+    {
+      playlistObj.optionsHtml.childNodes[0].setAttribute("class", "playlist_option_div");
+      playlistObj.optionsHtml.childNodes[1].setAttribute("class", "playlist_option_div");
+    }
+  }
   this.clearPlaylist = function()
   {
-    this.offset = 0;
-    this.tracks = new Array();
-    this.htmlTrackCount = 0;
+    playlistObj.offset = 0;
+    playlistObj.tracks = new Array();
+    playlistObj.htmlTrackCount = 0;
     removeChilds(audioCaption);
-    removeChilds(this.listHtml);
+    removeChilds(playlistObj.listHtml);
     audioPlayer.pause();
-    this.previousId = -1;
+    playlistObj.previousId = -1;
     audioPlayer.preload = "none";
     /* this causes firefox to complain
      * "Invalid URI. Load of media resource  failed."
@@ -1144,7 +1202,10 @@ document.addEventListener("DOMContentLoaded", init);
   width: 100%;
 }
 .playlist {
-  height: 200px;
+  background-color: #000000;
+}
+.playlist_list {
+  max-height: 200px;
   overflow: auto;
 }
 .playlist_link:link, .playlist_link:visited {
@@ -1165,6 +1226,43 @@ document.addEventListener("DOMContentLoaded", init);
 }
 .playlist_selected_element::before {
   content: "▶ ";
+}
+.playlist_option_wrapper {
+  background-color: #000000;
+  width: calc(100% - 4px);
+  height: 42px;
+}
+.playlist_option_div {
+  float: left;
+  width: 80px;
+  height: 34px;
+  padding: 2px;
+  background-color: #000000;
+  text-align: center;
+  margin-right: calc(0px + (100% - (88px * 4))/3 - 2px);
+  border-top: 2px solid #e8e8e8;
+  border-left: 2px solid #e8e8e8;
+  border-bottom: 2px solid #909090;
+  border-right: 2px solid #909090;
+}
+.playlist_option_div:nth-child(1)
+{
+  margin-left: 2px;
+}
+.playlist_option_div:nth-last-child(1)
+{
+  margin-right: 0px;
+}
+.playlist_option_div:hover
+{
+  border: 4px solid #ffffff;
+  padding: 0px;
+}
+.playlist_option_div_selected {
+  background-color: #707070;
+}
+.playlist_option_img {
+}
 </style>
 </head>
 <body>
