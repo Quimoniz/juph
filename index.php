@@ -119,10 +119,10 @@ function flush_files_to_db($dbcon, $files_to_insert)
         {
             $sql_values .= ', ';
         }
-        $sql_values .= '(NULL, \'' . $hashed_filename . '\', \'' . $escaped_filename . '\', ' . $cur_time . ', ' . $cur_file->size . ')';
+        $sql_values .= '(NULL, \'' . $hashed_filename . '\', \'' . $escaped_filename . '\', ' . $cur_time . ', ' . $cur_file->size . ', \'Y\')';
         $i++;
     }
-    @$dbcon->query('INSERT INTO `filecache` (`id`, `path_hash`, `path_str`, `last_scan`, `size`) ' . $sql_values . ' ON DUPLICATE KEY UPDATE `last_scan` = VALUES(`filecache`.`last_scan`)');
+    @$dbcon->query('INSERT INTO `filecache` (`id`, `path_hash`, `path_str`, `last_scan`, `size`, `valid`) ' . $sql_values . ' ON DUPLICATE KEY UPDATE `last_scan` = VALUES(`filecache`.`last_scan`), `valid`=\'Y\'');
 }
 
 
@@ -421,6 +421,61 @@ if(isset($_GET['ajax']))
         } else {
           server_error("Error when looking up playlist", false);
         }
+    } else if(isset($_GET['put_playlist']))
+    {
+        $playlist_name = '';
+        $playlist_tracks = '';
+        $playlist_description = '';
+        if(isset($_POST['playlist_name'])) $playlist_name = $_POST['playlist_name'];
+        if(isset($_POST['playlist_tracks'])) $playlist_tracks = $_POST['playlist_tracks'];
+        if(isset($_POST['playlist_description'])) $playlist_description = $_POST['playlist_description'];
+        if(0 < strlen($playlist_name) && 0 < strlen($playlist_tracks))
+        {
+            $playlist_name = $dbcon->real_escape_string($playlist_name);
+            $str_tracks = explode(',', $playlist_tracks);
+            $int_tracks = array();
+            foreach($str_tracks as $curValue)
+            {
+                $curInt = 0;
+                $curInt = (int) $curValue;
+                if(0 < $curInt && 9223372036854776000 > $curInt)
+                {
+                    $int_tracks[] = $curInt;
+                }
+            }
+            $playlist_db_id = -1;
+            $result = $dbcon->query('SELECT `id` FROM `playlists` WHERE `name`=\'' . $playlist_name . '\'');
+            if(!(FALSE === $result) && 0 < $result->num_rows)
+            {
+                $cur_row = $result->fetch_assoc();
+                $playlist_db_id = $cur_row['id'];
+            }
+            if(-1 < $playlist_db_id)
+            {
+                $dbcon->query('DELETE FROM `relation_playlists` WHERE `pid`=' . $playlist_db_id);
+            } else
+            {
+                $dbcon->query('INSERT INTO `playlists` (`id`,`name`,`description`) VALUES (NULL, \'' . $playlist_name . '\', \'' . $playlist_description . '\')');
+                $playlist_db_id = $dbcon->insert_id;
+            }
+            $insert_sql = 'INSERT INTO `relation_playlists` (`pid`,`fid`,`prank`) VALUES';
+            $i = 1;
+            foreach($int_tracks as $curFid)
+            {
+                if(1 < $i) $insert_sql .= ', ';
+                $insert_sql .= '(' . $playlist_db_id . ', ' . $curFid . ', ' . $i . ')';
+                $i++;
+            }
+            $result = $dbcon->query($insert_sql);
+            if(FALSE === $result)
+            {
+                server_error("Could not enter playlist items into playlist", true);
+                exit(0);
+            }
+
+            echo "{ \"success\": true }";
+            exit(0);
+        }
     }
     exit(0);
 }
@@ -603,6 +658,7 @@ function PlaylistClass()
   this.offset = 0;
   this.previousId = -1;
   this.loop = "none";
+  this.myName = "";
   this.assumePlaylist = function()
   {
     if(playlistEle)
@@ -636,7 +692,7 @@ function PlaylistClass()
     this.optionsHtml = this.boundHtml.appendChild(this.optionsHtml);
     this.optionsHtml.childNodes[0].addEventListener("click", function() { playlistObj.loopClicked("one"); } );
     this.optionsHtml.childNodes[1].addEventListener("click", function() { playlistObj.loopClicked("all"); } );
-    this.optionsHtml.childNodes[2].addEventListener("click", playlistObj.clearPlaylist);
+    this.optionsHtml.childNodes[2].addEventListener("click", playlistObj.save);
     this.optionsHtml.childNodes[3].addEventListener("click", playlistObj.clearPlaylist);
   }
   this.enqueueLast = function(trackId, trackType, trackName)
@@ -778,15 +834,17 @@ function PlaylistClass()
       if((playlistObj.offset + 1) < playlistObj.tracks.length)
       {
         playlistObj.advance(1);
+        playlistObj.play();
       }
     } else if("all" == playlistObj.loop)
     {
       playlistObj.advance(1);
+      playlistObj.play();
     } else if("one" == playlistObj.loop)
     {
       //don't advance offset
+      playlistObj.play();
     }
-    playlistObj.play();
   }
   this.loopClicked = function(loopStr)
   {
@@ -846,6 +904,21 @@ function PlaylistClass()
       }
     });
     req.send();
+  }
+  this.save = function()
+  {
+    playlistObj.myName = prompt("Please enter name of Playlist:");
+    var idString = "";
+    for(var i = 0; i < playlistObj.tracks.length; ++i)
+    {
+      if(0 < i) idString += ",";
+      idString += "" + playlistObj.tracks[i].id;
+    }
+    var req = new XMLHttpRequest();
+    req.open("POST", "?ajax&put_playlist");
+    req.addEventListener("load", function(param) { console.log(param.target.responseText); });
+    req.setRequestHeader("Content-type", "application/x-www-form-urlencoded");
+    req.send("playlist_name=" + encodeURIComponent(playlistObj.myName) + "&playlist_tracks=" + encodeURIComponent(idString));
   }
 }
 function TrackClass(trackId, trackType, trackName)
