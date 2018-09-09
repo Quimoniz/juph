@@ -642,6 +642,8 @@ function init()
   playlistWrapper = document.getElementById("playlist_wrapper");
   playlistObj = new PlaylistClass();
   playlistObj.assumePlaylist();
+  audioPlayer.addEventListener("wheel", playlistObj.onwheel);
+  audioPlayer.addEventListener("play", playlistObj.onplay);
   audioPlayer.addEventListener("ended", playlistObj.trackEnded);
   audioCaption = document.getElementById("audio_caption");
   juffImgEle = document.getElementById("juff_img");
@@ -739,10 +741,10 @@ function PlaylistClass()
       trackEle.setAttribute("class", "playlist_element");
     }
     trackEle.appendChild(document.createTextNode(beautifySongName(basename(trackObj.name))));
-    trackLink.appendChild(trackEle);
+    trackEle = trackLink.appendChild(trackEle);
     if(position == (this.htmlTrackCount + 1))
     {
-      this.listHtml.appendChild(trackLink);
+      trackLink = this.listHtml.appendChild(trackLink);
     } else
     {
       this.listHtml.insertBefore(trackLink, this.listHtml.childNodes[position]);
@@ -752,6 +754,7 @@ function PlaylistClass()
       }
     }
     this.htmlTrackCount++;
+    trackLink.addEventListener("contextmenu", function(evt) { evt.preventDefault() });
   }
   this.scrollTo = function(offset)
   {
@@ -785,7 +788,7 @@ function PlaylistClass()
     }
     playlistObj.play();
   }
-  this.play = function()
+  this.play = function(doContinuePlaying)
   {
     if(this.offset >= this.tracks.length)
     {
@@ -804,7 +807,10 @@ function PlaylistClass()
         juffImgEle.setAttribute("height", "200");
       } else
       {
-        audioPlayer.currentTime = 0;
+        if(!doContinuePlaying)
+        {
+          audioPlayer.currentTime = 0;
+        }
       }
       audioPlayer.play();
       removeChilds(audioCaption);
@@ -826,6 +832,15 @@ function PlaylistClass()
   {
     playlistObj.advance(1);
     playlistObj.play();
+  }
+  this.onwheel = function(evt)
+  {
+    evt.preventDefault();
+    audioPlayer.currentTime = audioPlayer.currentTime + evt.deltaY;
+  }
+  this.onplay = function(evt)
+  {
+    playlistObj.play(true);
   }
   this.trackEnded = function()
   {
@@ -907,18 +922,22 @@ function PlaylistClass()
   }
   this.save = function()
   {
-    playlistObj.myName = prompt("Please enter name of Playlist:");
-    var idString = "";
-    for(var i = 0; i < playlistObj.tracks.length; ++i)
+    var returnVal = prompt("Please enter name of Playlist:");
+    if(returnVal)
     {
-      if(0 < i) idString += ",";
-      idString += "" + playlistObj.tracks[i].id;
+      playlistObj.myName = returnVal;
+      var idString = "";
+      for(var i = 0; i < playlistObj.tracks.length; ++i)
+      {
+        if(0 < i) idString += ",";
+        idString += "" + playlistObj.tracks[i].id;
+      }
+      var req = new XMLHttpRequest();
+      req.open("POST", "?ajax&put_playlist");
+      req.addEventListener("load", function(param) { console.log(param.target.responseText); });
+      req.setRequestHeader("Content-type", "application/x-www-form-urlencoded");
+      req.send("playlist_name=" + encodeURIComponent(playlistObj.myName) + "&playlist_tracks=" + encodeURIComponent(idString));
     }
-    var req = new XMLHttpRequest();
-    req.open("POST", "?ajax&put_playlist");
-    req.addEventListener("load", function(param) { console.log(param.target.responseText); });
-    req.setRequestHeader("Content-type", "application/x-www-form-urlencoded");
-    req.send("playlist_name=" + encodeURIComponent(playlistObj.myName) + "&playlist_tracks=" + encodeURIComponent(idString));
   }
 }
 function TrackClass(trackId, trackType, trackName)
@@ -1031,7 +1050,7 @@ function Tracklist(tracklistJSON)
     {
       var linkEle = document.createElement("a");
       linkEle.setAttribute("href", "javascript:searchTrackLeftclicked(" + this.tracks[i].id + ", \"" + this.tracks[i].type + "\", \"" + this.tracks[i].name + "\")");
-      linkEle.addEventListener("contextmenu", function (listEle, trackId, trackType, trackName) { return function (evt) { evt.preventDefault(); searchTrackRightclicked(evt, listEle, trackId, trackType, trackName); }; }(linkEle, this.tracks[i].id, this.tracks[i].type, this.tracks[i].beautifiedName));
+      linkEle.addEventListener("contextmenu", function (listEle, trackId, trackType, trackName) { return function (evt) { evt.preventDefault(); searchTrackRightclicked(evt, listEle, trackId, trackType, trackName); }; }(linkEle, this.tracks[i].id, this.tracks[i].type, this.tracks[i].name));
       linkEle.setAttribute("class", "search_list_link");
       var divEle = document.createElement("div");
       divEle.setAttribute("class", "search_list_element");
