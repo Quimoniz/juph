@@ -267,6 +267,7 @@ if($need_create_table)
     $create_sql .= '`last_scan` BIGINT NOT NULL,';
     $create_sql .= '`size` BIGINT NOT NULL,';
     $create_sql .= '`valid` ENUM(\'Y\',\'N\') NOT NULL DEFAULT \'Y\',';
+    $create_sql .= '`count_played` BIGINT NOT NULL DEFAULT 0';
     // maybe TODO for later: more fields e.g. hash, len
     $create_sql .= 'KEY(`id`),';
     $create_sql .= 'INDEX(`path_hash`)';
@@ -277,7 +278,7 @@ if($need_create_table)
     $create_sql .= '`name` VARCHAR(256) NOT NULL,';
     $create_sql .= '`description` TEXT CHARACTER SET utf8 NULL,';
     $create_sql .= '`thumb_path` VARCHAR(1024) CHARACTER SET utf8 NULL,';
-    $create_sql .= '`count_played` BIGINT NOT NULL,';
+    $create_sql .= '`count_played` BIGINT NOT NULL DEFAULT 0,';
     $create_sql .= 'KEY(`id`)';
     $create_sql .= ') ENGINE=InnoDB; ';
     // TABLE `relation_playlists`
@@ -366,7 +367,7 @@ if(isset($_GET['ajax']))
             }
             if(0 < $count_matches)
             {
-                $result_matches = @$dbcon->query('(SELECT `id`,`path_str`, \'file\' AS \'type\' FROM `filecache` WHERE `valid`=\'Y\' AND `path_str` LIKE \'%' . $search_subject . '%\') UNION (SELECT `id`, `name`, \'playlist\' AS \'type\' FROM `playlists` WHERE `name` LIKE \'%' . $search_subject . '%\') ORDER BY `type` DESC, `path_str` ASC LIMIT ' . $search_offset . ',' . $AJAX_PAGE_LIMIT);
+                $result_matches = @$dbcon->query('(SELECT `id`,`path_str`, \'file\' AS \'type\',`count_played` AS \'count_played\' FROM `filecache` WHERE `valid`=\'Y\' AND `path_str` LIKE \'%' . $search_subject . '%\') UNION (SELECT `id`, `name`, \'playlist\' AS \'type\', `count_played` AS \'count_played\' FROM `playlists` WHERE `name` LIKE \'%' . $search_subject . '%\') ORDER BY `type` DESC, `count_played` DESC, `path_str` ASC LIMIT ' . $search_offset . ',' . $AJAX_PAGE_LIMIT);
                 if(!(FALSE === $result_matches))
                 {
                     echo "{\n\"success\": true,\n\"countMatches\":";
@@ -376,7 +377,9 @@ if(isset($_GET['ajax']))
                     while($cur_row = $result_matches->fetch_assoc())
                     {
                         if(0 < $i) echo ",\n";
-                        echo "{ \"id\": " . $cur_row['id'] . ", \"type\": \"" . $cur_row['type'] . "\",\"name\": \"" . js_escape($cur_row['path_str']) . "\"}";
+                        echo "{ \"id\": " . $cur_row['id'] . ", \"type\": \"" . $cur_row['type'];
+                        echo "\",\"countPlayed\": " . $cur_row['id'];
+                        echo ",\"name\": \"" . js_escape($cur_row['path_str']) . "\"}";
                         $i++;
                     }
                     echo "]\n}";
@@ -399,6 +402,7 @@ if(isset($_GET['ajax']))
                 $result_path = $CONFIG_VAR['MUSIC_DIR_ROOT'] . '/' . $result_row['path_str'];
                 if('Y' == $result_row['valid'] && file_exists($result_path))
                 {
+                    @$dbcon->query('UPDATE `filecache` SET `count_played`=`count_played`+1 WHERE `filecache`.`id`=' . $target_id);
                     $target_data = file_get_contents($result_path);
                     header('Content-Type: audio/mp3');
                     echo $target_data;
@@ -418,6 +422,7 @@ if(isset($_GET['ajax']))
             echo "{ \"id\": " . $cur_row['id'] . ", \"type\": \"" . $cur_row['type'] . "\",\"name\": \"" . js_escape($cur_row['name']) . "\"}";
           }
           echo "]\n}";
+          @$dbcon->query('UPDATE `playlists` SET `count_played`=`count_played`+1 WHERE `playlists`.`id`=' . $playlist_id);
         } else {
           server_error("Error when looking up playlist", false);
         }
