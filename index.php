@@ -729,17 +729,25 @@ function PlaylistClass()
     if("file" == trackType)
     {
       var newTrack = new TrackClass(trackId, trackType, trackName);
-      if(this.tracks.length > (this.offset + 1))
+      var newPos = this.offset + 1;
+      if(this.tracks.length > newPos)
       {
-        this.tracks.splice(this.offset + 1, 0, newTrack);
+        this.tracks.splice(newPos, 0, newTrack);
       } else
       {
         this.tracks.push(newTrack);
       }
-      this.addTrackHtml(newTrack, this.offset + 1);
+      this.addTrackHtml(newTrack, newPos);
       if(this.playRandom)
       {
-        this.randomArr.splice(this.randomOffset, 0, this.offset + 1);
+        for(var i = 0; i < this.randomArr.length; ++i)
+        {
+          if(this.randomArr[i] >= newPos)
+          {
+            this.randomArr[i] = this.randomArr[i] + 1;
+          }
+        }
+        this.randomArr.splice(this.randomOffset + 1, 0, newPos);
       }
     } else if("playlist" == trackType)
     {
