@@ -807,6 +807,11 @@ function PlaylistClass()
   }
   this.playOffset = function(newOffset)
   {
+    if(this.playRandom)
+    {
+      this.playRandom = false;
+      this.setHtmlOption(2, false);
+    }
     if(-1 < newOffset && newOffset < playlistObj.tracks.length)
     {
       this.listHtml.childNodes[this.offset].firstChild.setAttribute("class", "playlist_element");
@@ -910,16 +915,20 @@ function PlaylistClass()
       playlistObj.play();
     }
   }
+  this.setHtmlOption = function(optionNumber, optionEnabled)
+  {
+    if(optionEnabled)
+    {
+      playlistObj.optionsHtml.childNodes[optionNumber].setAttribute("class","playlist_option_div playlist_option_div_selected");
+    } else
+    {
+      playlistObj.optionsHtml.childNodes[optionNumber].setAttribute("class","playlist_option_div");
+    }
+  }
   this.randomClicked = function()
   {
     playlistObj.playRandom = ! playlistObj.playRandom;
-    if(playlistObj.playRandom)
-    {
-      playlistObj.optionsHtml.childNodes[2].setAttribute("class", "playlist_option_div playlist_option_div_selected");
-    } else
-    {
-      playlistObj.optionsHtml.childNodes[2].setAttribute("class", "playlist_option_div");
-    }
+    playlistObj.setHtmlOption(2, playlistObj.playRandom);
 
     if(playlistObj.playRandom)
     {
@@ -954,19 +963,8 @@ function PlaylistClass()
       playlistObj.loop = loopStr;
     }
 
-    if("one" == playlistObj.loop)
-    {
-      playlistObj.optionsHtml.childNodes[0].setAttribute("class", "playlist_option_div playlist_option_div_selected");
-      playlistObj.optionsHtml.childNodes[1].setAttribute("class", "playlist_option_div");
-    } else if("all" == playlistObj.loop)
-    {
-      playlistObj.optionsHtml.childNodes[0].setAttribute("class", "playlist_option_div");
-      playlistObj.optionsHtml.childNodes[1].setAttribute("class", "playlist_option_div playlist_option_div_selected");
-    } else if("none" == playlistObj.loop)
-    {
-      playlistObj.optionsHtml.childNodes[0].setAttribute("class", "playlist_option_div");
-      playlistObj.optionsHtml.childNodes[1].setAttribute("class", "playlist_option_div");
-    }
+    playlistObj.setHtmlOption(0, "one" == playlistObj.loop);
+    playlistObj.setHtmlOption(1, "all" == playlistObj.loop);
   }
   this.clearPlaylist = function()
   {
@@ -1381,7 +1379,7 @@ document.addEventListener("DOMContentLoaded", init);
   background-color: #000000;
 }
 .playlist_list {
-  max-height: 200px;
+  max-height: 250px;
   overflow: auto;
 }
 .playlist_link:link, .playlist_link:visited {
