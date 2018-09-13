@@ -163,12 +163,12 @@ if(!isset($CONFIG_VAR['DB_ADDR'])
 //step 0.9 check password
 $access_granted = false;
 $access_setcookie = false;
-if(isset($_GET['access_pwd']) && 0 === strcmp($CONFIG_VAR['ACCESS_PWD'], $_GET['access_pwd']))
+if(isset($_GET['access_pwd']) && 0 === strcmp($CONFIG_VAR['ACCESS_PWD'], $_GET['access_pwd']) && isset($_GET['access_allow_cookies']))
 {
     $access_granted = true;
     $access_setcookie = true;
 }
-if(isset($_POST['access_pwd']) && 0 === strcmp($CONFIG_VAR['ACCESS_PWD'], $_POST['access_pwd']))
+if(isset($_POST['access_pwd']) && 0 === strcmp($CONFIG_VAR['ACCESS_PWD'], $_POST['access_pwd']) && isset($_POST['access_allow_cookies']))
 {
     $access_granted = true;
     $access_setcookie = true;
@@ -210,10 +210,12 @@ if($access_granted)
 <div class="pw_wrapper">
 <fieldset>
 <legend>Password:</legend>
-<form method="POST" action="">
+<form method="POST" action="" onsubmit="return document.getElementById('access_allow_cookies').checked;">
+<input type="checkbox" name="access_allow_cookies" id="access_allow_cookies" onchange="document.getElementById('form_submit').disabled=!this.checked; return true;"/>
+<label for="access_allow_cookies">Allow cookies</label><br/>
 <input type="password" name="access_pwd" size="30" />
-<input type="submit" />
-</form>
+<input type="submit" id="form_submit" disabled="disabled" />
+<script type="text/javascript">document.getElementById("access_allow_cookies").checked=false;</script>
 </form>
 </fieldset>
 </div>
