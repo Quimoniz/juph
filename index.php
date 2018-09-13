@@ -652,6 +652,7 @@ function init()
   audioPlayer.addEventListener("wheel", playlistObj.onwheel);
   audioPlayer.addEventListener("play", playlistObj.onplay);
   audioPlayer.addEventListener("ended", playlistObj.trackEnded);
+  audioPlayer.addEventListener("error", playlistObj.onerror);
   audioCaption = document.getElementById("audio_caption");
   juffImgEle = document.getElementById("juff_img");
   BODY = document.getElementsByTagName("body")[0];
@@ -876,6 +877,17 @@ function PlaylistClass()
   {
     playlistObj.advance(1);
     playlistObj.play();
+  }
+  this.onerror = function(evt)
+  {
+    if(audioPlayer.networkState == HTMLMediaElement.NETWORK_NO_SOURCE)
+    {
+      playlistObj.trackEnded(evt);
+    } else
+    {
+      console.log("Miscellenaeous error occured with audio Player.");
+      console.log(evt);
+    }
   }
   this.onwheel = function(evt)
   {
