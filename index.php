@@ -55,6 +55,51 @@ function gen_pwd($pwd_len = 15, $use_special_chars = true)
     }
     return $out_pwd;
 }
+
+function prepare_premature_disconnect()
+{
+    header("Connection: close");
+    header("Content-Encoding: none");
+    ob_end_clean();
+    ignore_user_abort(true);
+    ob_start();
+}
+function do_premature_disconnect()
+{
+    $content_length = ob_get_length();
+    header("Content-Length: " . $content_length);
+    ob_end_flush();
+    flush();
+}
+
+function tagify_filecache($dbcon)
+{
+    if(!dbcon)
+    {
+        return;
+    }
+    $untagified_result = $dbcon->query('SELECT `id`,`path_str` FROM `filecache` WHERE `tagified`=\'N\' ORDER BY `id` ASC LIMIT 100');
+    $ignore_levels = 1;
+    if(!(FALSE === $untagified_result) && 0 < $untagified_result->num_rows)
+    {
+        $cur_row = false;
+        $cur_dir_arr = false;
+        $cur_dir_name = "";
+        $cur_id = -1;
+        // do two rounds,
+        // first round, gather all the different tags
+        //   -> enter them into table `tags`
+        // second round, compile an insert for file<->tag relation
+        while($cur_row = $untagified_result->fetch_assoc)
+        {
+            $cur_id = $cur_row['id'];
+            $cur_dir_name = dirname($cur_row['path_str']);
+            $cur_dir_arr = explode('/', $cur_dir_name);
+            array_splice($cur_dir_arr, 0, $ignore_levels);
+        }
+    }
+}
+
 class MinimalisticFile {
     public $path = '';
     public $fullpath = '';
@@ -339,6 +384,7 @@ if($need_create_table)
 $AJAX_PAGE_LIMIT = 25;
 if(isset($_GET['ajax']))
 {
+    prepare_premature_disconnect();
     if(isset($_GET['matching_tracks']))
     {
         $search_subject = $_GET['matching_tracks'];
@@ -366,34 +412,34 @@ if(isset($_GET['ajax']))
                 {
                     $count_matches += (int) $cur_row['count_matches'];
                 }
-            } else
-            {
-                server_error('database query failure', true);
-                exit(0);
-            }
-            if(0 < $count_matches)
-            {
-                $result_matches = @$dbcon->query('(SELECT `id`,`path_str`, \'file\' AS \'type\',`count_played` AS \'count_played\' FROM `filecache` WHERE `valid`=\'Y\' AND `path_str` LIKE \'%' . $search_subject . '%\') UNION (SELECT `id`, `name`, \'playlist\' AS \'type\', `count_played` AS \'count_played\' FROM `playlists` WHERE `name` LIKE \'%' . $search_subject . '%\') ORDER BY `type` DESC, `count_played` DESC, `path_str` ASC LIMIT ' . $search_offset . ',' . $AJAX_PAGE_LIMIT);
-                if(!(FALSE === $result_matches))
+
+
+                if(0 < $count_matches)
                 {
-                    echo "{\n\"success\": true,\n\"countMatches\":";
-                    echo $count_matches . ",\n\"pageLimit\":" . $AJAX_PAGE_LIMIT;
-                    echo ",\n\"offsetMatches\":" . $search_offset . ",\n\"matches\": [\n";
-                    $i = 0;
-                    while($cur_row = $result_matches->fetch_assoc())
+                    $result_matches = @$dbcon->query('(SELECT `id`,`path_str`, \'file\' AS \'type\',`count_played` AS \'count_played\' FROM `filecache` WHERE `valid`=\'Y\' AND `path_str` LIKE \'%' . $search_subject . '%\') UNION (SELECT `id`, `name`, \'playlist\' AS \'type\', `count_played` AS \'count_played\' FROM `playlists` WHERE `name` LIKE \'%' . $search_subject . '%\') ORDER BY `type` DESC, `count_played` DESC, `path_str` ASC LIMIT ' . $search_offset . ',' . $AJAX_PAGE_LIMIT);
+                    if(!(FALSE === $result_matches))
                     {
-                        if(0 < $i) echo ",\n";
-                        echo "{ \"id\": " . $cur_row['id'] . ", \"type\": \"" . $cur_row['type'];
-                        echo "\",\"countPlayed\": " . $cur_row['id'];
-                        echo ",\"name\": \"" . js_escape($cur_row['path_str']) . "\"}";
-                        $i++;
+                        echo "{\n\"success\": true,\n\"countMatches\":";
+                        echo $count_matches . ",\n\"pageLimit\":" . $AJAX_PAGE_LIMIT;
+                        echo ",\n\"offsetMatches\":" . $search_offset . ",\n\"matches\": [\n";
+                        $i = 0;
+                        while($cur_row = $result_matches->fetch_assoc())
+                        {
+                            if(0 < $i) echo ",\n";
+                            echo "{ \"id\": " . $cur_row['id'] . ", \"type\": \"" . $cur_row['type'];
+                            echo "\",\"countPlayed\": " . $cur_row['id'];
+                            echo ",\"name\": \"" . js_escape($cur_row['path_str']) . "\"}";
+                            $i++;
+                        }
+                        echo "]\n}";
                     }
-                    echo "]\n}";
+                } else
+                {
+                    server_error('database query failure', true);
                 }
             } else
             {
                 client_error('no query results', true);
-                exit(0);
             }
         }
     } else if(isset($_GET['request_track']))
@@ -481,16 +527,18 @@ if(isset($_GET['ajax']))
             if(FALSE === $result)
             {
                 server_error("Could not enter playlist items into playlist", true);
-                exit(0);
+            } else
+            {
+                echo "{ \"success\": true }";
             }
-
-            echo "{ \"success\": true }";
-            exit(0);
         }
     } else if(isset($_GET['popular']))
     {
         server_error("Not yet implemented.", true);
     }
+
+    do_premature_disconnect();
+    tagify_filecache($dbcon);
     exit(0);
 }
 
@@ -1650,6 +1698,5 @@ document.addEventListener("DOMContentLoaded", init);
 </body>
 </html>
 <?php
-
 
 ?>
