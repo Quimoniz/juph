@@ -12,6 +12,9 @@
  * 4 present HTML5-Audio-Player
  *
  * TODO: handle each and every mysql query: log mysql errors to a file
+ *
+ * MySQL query to get the size of all tables:
+ * SELECT `table_name` AS 'tbl', round(((data_length + index_length) / 1024 / 1024), 2) AS 'size in MB' FROM information_schema.TABLES WHERE table_schema='juph';
  */
 $CONFIG_FILE = 'config.php';
 $CONFIG_VAR = NULL;
@@ -270,6 +273,7 @@ if($need_create_table)
     $create_sql .= '`size` BIGINT NOT NULL,';
     $create_sql .= '`valid` ENUM(\'Y\',\'N\') NOT NULL DEFAULT \'Y\',';
     $create_sql .= '`count_played` BIGINT NOT NULL DEFAULT 0';
+    $create_sql .= '`tagified` ENUM(\'Y\',\'N\') NOT NULL DEFAULT \'N\',';
     // maybe TODO for later: more fields e.g. hash, len
     $create_sql .= 'KEY(`id`),';
     $create_sql .= 'INDEX(`path_hash`)';
@@ -483,6 +487,9 @@ if(isset($_GET['ajax']))
             echo "{ \"success\": true }";
             exit(0);
         }
+    } else if(isset($_GET['popular']))
+    {
+        server_error("Not yet implemented.", true);
     }
     exit(0);
 }
@@ -636,7 +643,6 @@ var playlistWrapper;
 var sessionPlaylist;
 var playlistEle;
 var playlistObj;
-var juffImgEle;
 var BODY;
 var contextMenu;
 var sessionId;
@@ -654,10 +660,76 @@ function init()
   audioPlayer.addEventListener("ended", playlistObj.trackEnded);
   audioPlayer.addEventListener("error", playlistObj.onerror);
   audioCaption = document.getElementById("audio_caption");
-  juffImgEle = document.getElementById("juff_img");
   BODY = document.getElementsByTagName("body")[0];
+  BODY.getTotalHeight = function()
+  {
+    //thanks to 'Borgar'
+    // https://stackoverflow.com/a/1147768
+    html = document.documentElement;
+    return Math.max(BODY.scrollHeight, BODY.offsetHeight,
+                    html.clientHeight, html.scrollHeight, html.offsetHeight);
+  }
   sessionId = <?php echo "\"" . js_escape($SESSION_ID) . "\";";  ?>
+  juffImg.init();
 }
+var juffImg = {
+  imgArr: [
+    {
+      src: "logo.png",
+      width: 178,
+      height: 200
+    },
+    {
+      src: "country.png",
+      width: 140,
+      height:165 
+    },
+    {
+      src: "rock.png",
+      width: 151,
+      height: 200
+    },
+    {
+      src: "hiphop.png",
+      width: 168,
+      height: 200
+    },
+   ],
+  ele: undefined,
+  init: function()
+  {
+    juffImg.ele = document.getElementById("juff_img");
+    juffImg.setImg(0);
+  },
+  setImg: function(imgName)
+  {
+    var match = juffImg.imgArr[0];
+    if("string" == (typeof imgName))
+    {
+      for(var i = 0; i < juffImg.imgArr.length; ++i)
+      {
+        if(juffImg.imgArr[i].match(imgName))
+        {
+          match = juffImg.imgArr[i];
+          break;
+        }
+      }
+    } else if("number" == (typeof imgName))
+    {
+      if(-1 < imgName && juffImg.imgArr.length > imgName)
+      {
+        match = juffImg.imgArr[imgName];
+      }
+    }
+    juffImg.ele.setAttribute("src",    match.src);
+    juffImg.ele.setAttribute("width",  match.width);
+    juffImg.ele.setAttribute("height", match.height);
+  },
+  getImgCount: function()
+  {
+    return juffImg.imgArr.length;
+  }
+};
 function PlaylistClass()
 {
   this.boundHtml;
@@ -778,15 +850,50 @@ function PlaylistClass()
       this.listHtml.insertBefore(trackLink, this.listHtml.childNodes[position]);
       for(var i = position + 1; i < this.listHtml.childNodes.length; ++i)
       {
-        this.listHtml.childNodes[i].setAttribute("href", "javascript:playlistObj.playOffset(" + i + ")");
+        this.updateListElement(i);
       }
     }
     this.htmlTrackCount++;
-    trackLink.addEventListener("contextmenu", function(evt) { evt.preventDefault() });
-  }
+    trackLink.setAttribute("playlist_offset", position);
+    trackLink.addEventListener("contextmenu", function(position) {
+      var contextHandler = function(evt) { 
+        evt.preventDefault();
+        var position = parseInt(evt.target.parentNode.getAttribute("playlist_offset"));
+        playlistObj.contextMenuFor(evt.pageX, evt.pageY, evt.target, position);
+      };
+    return contextHandler;
+    }(position), false);
+  };
+  this.contextMenuFor = function(posX, posY, ele, position)
+  {
+    new ContextMenuClass(posX, posY, ele, [["Jump To", function(position) {
+      return function() { playlistObj.playOffset(position);}; }(position)],
+      ["Enqueue Next", function(position) {
+      return function() { var swapTrack = playlistObj.tracks[position]; playlistObj.removeTrack(position); playlistObj.enqueueNext(swapTrack.id, swapTrack.type, swapTrack.name); }; }(position)],
+      ["Remove", function(position) {
+      return function() { playlistObj.removeTrack(position); };}(position)]
+    ]);
+  };
+  this.updateListElement = function(position)
+  {
+    this.listHtml.childNodes[position].setAttribute("playlist_offset", position);
+    this.listHtml.childNodes[position].setAttribute("href", "javascript:playlistObj.playOffset(" + position + ")");
+  };
+  this.removeTrack = function(position)
+  {
+    this.tracks.splice(position, 1);
+    this.listHtml.removeChild(this.listHtml.childNodes[position]);
+    if(position < (this.tracks.length - 1))
+    {
+      for(var i = position; i < this.tracks.length; ++i)
+      {
+        this.updateListElement(position);
+      }
+    }
+  };
   this.scrollTo = function(offset)
   {
-    if(this.listHtml && this.listHtml.scrollTo)
+    if(this.listHtml && (this.listHtml.scrollTo || this.listHtml.scroll))
     {
       var cumulativeHeight = 0;
       for(var i = 0; i < offset; ++i)
@@ -796,10 +903,16 @@ function PlaylistClass()
         //for the surrounding "a"-element
         cumulativeHeight += this.listHtml.childNodes[i].firstChild.offsetHeight;
       }
-      this.listHtml.scrollTo({
-        top: cumulativeHeight,
-        left: 0,
-        behavior: "smooth"});
+      if(this.listHtml.scrollTo)
+      {
+        this.listHtml.scrollTo({
+          left: 0,
+          top: cumulativeHeight,
+          behavior: "smooth"});
+      } else
+      {
+        this.listHtml.scroll(0, cumulativeHeight);
+      }
     }
   }
   this.length = function()
@@ -836,9 +949,7 @@ function PlaylistClass()
           audioPlayer.pause();
           audioPlayer.setAttribute("src", requestUrl);
           audioPlayer.preload = "auto";
-          juffImgEle.setAttribute("src", "country.png");
-          juffImgEle.setAttribute("width", "170");
-          juffImgEle.setAttribute("height", "200");
+          juffImg.setImg(Math.floor(1 + Math.random() * (juffImg.getImgCount() - 1)));
         } else
         {
           if(!doContinuePlaying)
@@ -1034,6 +1145,7 @@ function PlaylistClass()
     }
   }
 }
+/* TODO: extend this by adding field 'countPlayed' */
 function TrackClass(trackId, trackType, trackName)
 {
   this.id = trackId;
@@ -1049,6 +1161,83 @@ function TrackClass(trackId, trackType, trackName)
     this.beautifiedName = "PL: " + this.name;
   }
 }
+
+function ContextMenuClass(posX, posY, parentNode, optionsArr)
+{
+  this.menuEle;
+  this.itemsArr;
+  this.overlayArr;
+  if(contextMenu)
+  {
+    if(contextMenu.selfDestruct) contextMenu.selfDestruct();
+  }
+  contextMenu = this;
+  this.selfDestruct = function()
+  {
+    if(contextMenu.overlayArr)
+    {
+      for(var i = 0; i < contextMenu.overlayArr.length; i++)
+      {
+        contextMenu.overlayArr[i].parentNode.removeChild(contextMenu.overlayArr[i]);
+      }
+    }
+    contextMenu.menuEle.parentNode.removeChild(contextMenu.menuEle);
+    contextMenu = undefined;
+  }
+  if(!parentNode)
+  {
+    this.overlayArr = new Array();
+    this.overlayArr.push(document.createElement("div"));
+    this.overlayArr[0].setAttribute("class", "overlay_veil");
+    this.overlayArr[0] = BODY.appendChild(this.overlayArr[0]);
+    this.overlayArr[0].addEventListener("click", function() {if(contextMenu && contextMenu.selfDestruct) contextMenu.selfDestruct();});
+  } else
+  {
+    /* TODO: if parentNode is given, paint a veil around the parentNode
+     */
+    this.overlayArr = new Array();
+    this.overlayArr.push(document.createElement("div"));
+    this.overlayArr[0].setAttribute("class", "overlay_veil");
+    this.overlayArr[0].style.position = "absolute";
+    this.overlayArr[0].style.left=0;
+    this.overlayArr[0].style.top =0;
+    this.overlayArr[0] = BODY.appendChild(this.overlayArr[0]);
+    this.overlayArr[0].addEventListener("click", function() {if(contextMenu && contextMenu.selfDestruct) contextMenu.selfDestruct();});
+  }
+  this.menuEle = document.createElement("div");
+  this.menuEle.setAttribute("class", "contextmenu_wrapper");
+  this.menuEle.style.position = "absolute";
+  if((posY + (optionsArr.length * 35) + 5) < BODY.getTotalHeight())
+  {
+    this.menuEle.style.top = posY;
+  } else
+  {
+    this.menuEle.style.top = posY - (optionsArr.length * 35 + 5);
+  }
+  if(posX + 150 < BODY.offsetWidth)
+  {
+    this.menuEle.style.left = posX;
+  } else
+  {
+    this.menuEle.style.left = posX - 150;
+  }
+  var closeEle = document.createElement("div");
+  closeEle.setAttribute("class", "contextmenu_close");
+  closeEle.appendChild(document.createTextNode("X"));
+  closeEle.addEventListener("click", function() {if(contextMenu && contextMenu.selfDestruct) contextMenu.selfDestruct();});
+  this.menuEle.appendChild(closeEle);
+  for(var i = 0; i < optionsArr.length; ++i)
+  {
+    var curEle = document.createElement("div");
+    curEle.appendChild(document.createTextNode(optionsArr[i][0]));
+    curEle.addEventListener("click", function(callback) { return function() {callback(); contextMenu.selfDestruct();} }(optionsArr[i][1]), false);
+    curEle.setAttribute("class", "contextmenu_item");
+    this.menuEle.appendChild(curEle);
+  }
+  this.menuEle.style.height = "calc(" + Math.max(2, optionsArr.length * 2) + "em - 5px)";
+  BODY.appendChild(this.menuEle);
+}
+
 function search_keyup(eventObj)
 {
   var searchSubject = searchField.value;
@@ -1062,8 +1251,10 @@ function ajax_matching_tracks(searchSubject, offset)
   var ajax = new XMLHttpRequest();
   ajax.open("GET", "?ajax&matching_tracks=" + encodeURIComponent(searchSubject) + "&matching_offset=" + encodeURIComponent(offset));
   ajax.addEventListener("load", function(param) {
+    console.log("Request took " + (((new Date()).getTime() - param.target.requestSendedTime)/1000) + " seconds");
     process_matching_tracks(param.target.responseText);
    });
+  ajax.requestSendedTime = (new Date()).getTime();
   ajax.send();
 }
 var currentTracklist = undefined;
@@ -1173,66 +1364,25 @@ function process_matching_tracks(responseText)
     currentTracklist.assumeSearchList();
   }
 }
-function clearContextMenu()
-{
-  if(contextMenu)
-  {
-    contextMenu.parentNode.removeChild(contextMenu);
-    contextMenu = undefined;
-  }
-}
 function searchTrackRightclicked(evt, listEle, trackId, trackType, trackName)
 {
-  if(contextMenu)
-  {
-    clearContextMenu();
-  }
-  var contextWrapper = document.createElement("div");
-  contextWrapper.style.position = "absolute";
-  contextWrapper.style.top = evt.pageY;
-  contextWrapper.style.left = evt.pageX;
-  contextWrapper.setAttribute("class", "search_context_wrapper");
-  var enqueueEle = document.createElement("div");
-  enqueueEle.appendChild(document.createTextNode("Enqueue"));
-  enqueueEle.setAttribute("class", "search_context_element");
-  enqueueEle.addEventListener("click", function(trackId,trackName){ return function(evt) {
+  new ContextMenuClass(evt.pageX, evt.pageY, evt.target, [["Enqueue", function(trackId,trackName){ return function(evt) {
       playlistObj.enqueueLast(trackId, trackType, trackName);
       if(1 == playlistObj.length())
       {
         playlistObj.play();
       }
-      clearContextMenu();
-    }; }(trackId, trackName), false);
-  contextWrapper.appendChild(enqueueEle);
-  var enqueueNextEle = document.createElement("div");
-  enqueueNextEle.appendChild(document.createTextNode("Enqueue Next"));
-  enqueueNextEle.setAttribute("class", "search_context_element");
-  enqueueNextEle.addEventListener("click", function(trackId,trackName){ return function(evt) {
+    }; }(trackId, trackName)],[ "Enqueue Next", function(trackId,trackName){ return function(evt) {
       playlistObj.enqueueNext(trackId, trackType, trackName);
       if(1 == playlistObj.length())
       {
         playlistObj.play();
       }
-      clearContextMenu();
-    }; }(trackId, trackName), false);
-  contextWrapper.appendChild(enqueueNextEle);
-  var playEle = document.createElement("div");
-  playEle.appendChild(document.createTextNode("Play"));
-  playEle.setAttribute("class", "search_context_element");
-  playEle.addEventListener("click", function(trackId,trackName){ return function(evt) {
+    }; }(trackId, trackName)],["Play", function(trackId,trackName){ return function(evt) {
       playlistObj.clearPlaylist();
       playlistObj.enqueueLast(trackId, trackType, trackName);
       playlistObj.play();
-      clearContextMenu();
-    }; }(trackId, trackName), false);
-  contextWrapper.appendChild(playEle);
-  var dismissEle = document.createElement("div");
-  dismissEle.appendChild(document.createTextNode(" X "));
-  dismissEle.setAttribute("class", "search_context_element");
-  dismissEle.addEventListener("click", clearContextMenu, false);
-  contextWrapper.appendChild(dismissEle);
-  
-  contextMenu = BODY.appendChild(contextWrapper);
+    }; }(trackId, trackName)]]);
 }
 function searchTrackLeftclicked(trackId, trackType, trackName)
 {
@@ -1304,25 +1454,6 @@ document.addEventListener("DOMContentLoaded", init);
   margin: 0.4em 0em 0.4em 0em;
   padding: 0em 0em 0.2em 0.3em;
   overflow: hidden;
-}
-.search_context_wrapper {
-  font-family: Sans, Sans-Serif, Arial;
-  width: 8em;
-  height: 8em;
-  border: 3px solid #808080;
-  border-radius: 10px;
-  background-color: #ffffff;
-  overflow: hidden;
-}
-.search_context_element {
-  background-color: #f0f0f0;
-  padding: 0.3em;
-  margin: 0em 0em 0.2em 0em;
-  border-radius: 10px;
-}
-.search_context_element:hover {
-  background-color: #505050;
-  color: #f0f0f0;
 }
 .search_label {
   font-size: 14pt;
@@ -1422,15 +1553,17 @@ document.addEventListener("DOMContentLoaded", init);
   float: left;
   width: calc(100% / 10);
   height: 34px;
-  padding: 2px;
-  background-color: #000000;
+  padding: 4px;
+  background-color: #808080;
   text-align: center;
-  /*margin-right: calc(0px + (100% - (88px * 4))/3 - 2px);*/
-  margin-right: calc(100% / 10 );
+  margin-right: calc(100% / 10);
+  background-image: radial-gradient(ellipse at center, #000000 0%, #080808 20%, #303030 40%, #707070 80%, #b0b0b0 100%);
+/*
   border-top: 2px solid #e8e8e8;
   border-left: 2px solid #e8e8e8;
   border-bottom: 2px solid #909090;
   border-right: 2px solid #909090;
+*/
 }
 .playlist_option_div:nth-child(1)
 {
@@ -1442,13 +1575,57 @@ document.addEventListener("DOMContentLoaded", init);
 }
 .playlist_option_div:hover
 {
+  background-color: #707070;
+  background-image: radial-gradient(ellipse at center, #b0b0b0 0%, #707070 20%, #303030 40%, #080808 80%, #000000 100%);
+}
+.playlist_option_div_selected {
   border: 4px solid #ffffff;
   padding: 0px;
 }
-.playlist_option_div_selected {
-  background-color: #707070;
-}
 .playlist_option_img {
+}
+.contextmenu_wrapper {
+  font-family: Sans, Sans-Serif, Arial;
+  width: 8em;
+  border: 3px solid #808080;
+  border-radius: 10px;
+  background-color: #ffffff;
+  overflow: hidden;
+  border-top-right-radius: 0px;
+}
+.contextmenu_close {
+  float: right;
+  width: 22px;
+  height: 27px;
+  background-color: #d0d0d0;
+  cursor: pointer;
+  font-size: 21px;
+  padding: 0px 0px 0px 5px;
+  border: 2px solid #808080;
+  border-right: none;
+  border-top: none;
+}
+.contextmenu_close:hover {
+  transform: scale(1.2);
+}
+.contextmenu_item {
+  background-color: #f0f0f0;
+  padding: 0.3em;
+  margin: 0em 0em 0.2em 0em;
+  border-radius: 10px;
+  cursor: pointer;
+}
+.contextmenu_item:hover {
+  background-color: #505050;
+  color: #f0f0f0;
+}
+.overlay_veil {
+  position: fixed;
+  left: 0px;
+  top: 0px;
+  width: 100%;
+  height: 100%;
+  background-color: rgba(64,64,64,0.2);
 }
 </style>
 </head>
