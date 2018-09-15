@@ -15,6 +15,10 @@
  *
  * MySQL query to get the size of all tables:
  * SELECT `table_name` AS 'tbl', round(((data_length + index_length) / 1024 / 1024), 2) AS 'size in MB' FROM information_schema.TABLES WHERE table_schema='juph';
+ *
+ * MySQL query to get the number of tagified and untagified files in `filecache`:
+ * (SELECT 'tagitfied' AS 'tagified', COUNT(`id`) AS 'anzahl' FROM `filecache` WHERE `tagified`='Y') UNION (SELECT 'untagified' AS 'tagified', COUNT(`id`) AS 'anzahl' FROM `filecache` WHERE `tagified`='N');
+
  */
 $CONFIG_FILE = 'config.php';
 $CONFIG_VAR = NULL;
@@ -90,12 +94,79 @@ function tagify_filecache($dbcon)
         // first round, gather all the different tags
         //   -> enter them into table `tags`
         // second round, compile an insert for file<->tag relation
-        while($cur_row = $untagified_result->fetch_assoc)
+        $arr_tags = array();
+        while($cur_row = $untagified_result->fetch_assoc())
         {
             $cur_id = $cur_row['id'];
             $cur_dir_name = dirname($cur_row['path_str']);
             $cur_dir_arr = explode('/', $cur_dir_name);
             array_splice($cur_dir_arr, 0, $ignore_levels);
+            for($i = 0; $i < count($cur_dir_arr); $i++)
+            {
+               $arr_tags[$cur_dir_arr[$i]] = -1;
+            }
+        }
+        $insert_sql = 'INSERT IGNORE INTO `tags` (`tagname`, `description`) VALUES';
+        $select_sql = 'SELECT `id`, `tagname` FROM `tags` WHERE ';
+        $i = 0;
+        foreach($arr_tags as $cur_key => $cur_value)
+        {
+            if(0 < $i)
+            {
+                $insert_sql .= ', ';
+                $select_sql .= ' OR ';
+            }
+            $insert_sql .= '(\'' . $dbcon->real_escape_string($cur_key) . '\', \'from folder ' . $dbcon->real_escape_string($cur_key) . '\')';
+            $select_sql .= '`tagname`=\'' . $dbcon->real_escape_string($cur_key) . '\'';
+            $i++;
+        }
+        if(0 < $i)
+        {
+            $dbcon->query($insert_sql);
+            $tagids_result = $dbcon->query($select_sql);
+            if(!(FALSE === $tagids_result))
+            {
+                while($cur_row = $tagids_result->fetch_assoc())
+                {
+                    if(isset($arr_tags[$cur_row['tagname']]))
+                    {
+                        $arr_tags[$cur_row['tagname']] = (int) $cur_row['id'];
+                    }
+                }
+            }
+            $untagified_result->data_seek(0);
+           
+            $insert_sql = 'INSERT IGNORE INTO `relation_tags` (`fid`,`tid`) VALUES';
+            $update_sql = 'UPDATE `filecache` SET `tagified`=\'Y\' WHERE ';
+            $j = 0;
+            $k = 0;
+            while($cur_row = $untagified_result->fetch_assoc())
+            {
+                $cur_id = $cur_row['id'];
+                $cur_dir_name = dirname($cur_row['path_str']);
+                $cur_dir_arr = explode('/', $cur_dir_name);
+                array_splice($cur_dir_arr, 0, $ignore_levels);
+                for($i = 0; $i < count($cur_dir_arr); $i++)
+                {
+                   if(-1 < $arr_tags[$cur_dir_arr[$i]])
+                   {
+                       if(0 < $j)
+                       {
+                           $insert_sql .= ', ';
+                       }
+                       $insert_sql .= '(' . $cur_id . ', ' . $arr_tags[$cur_dir_arr[$i]] . ')';
+                       $j++;
+                   }
+                }
+                if(0 < $k)
+                {
+                    $update_sql .= ' OR ';
+                }
+                $update_sql .= '`id`=' . $cur_id;
+                $k++;
+            }
+            $dbcon->query($insert_sql);
+            $dbcon->query($update_sql);
         }
     }
 }
@@ -162,15 +233,16 @@ function flush_files_to_db($dbcon, $files_to_insert)
     foreach($files_to_insert as $cur_file)
     {
         $hashed_filename = md5($cur_file->path);
-        $escaped_filename = $dbcon->real_escape_string($cur_file->path);
+        $escaped_path = $dbcon->real_escape_string($cur_file->path);
+        $escaped_filename = $dbcon->real_escape_string(basename($cur_file->path));
         if(0 < $i)
         {
             $sql_values .= ', ';
         }
-        $sql_values .= '(NULL, \'' . $hashed_filename . '\', \'' . $escaped_filename . '\', ' . $cur_time . ', ' . $cur_file->size . ', \'Y\')';
+        $sql_values .= '(NULL, \'' . $hashed_filename . '\', \'' . $escaped_path . '\', \'' . $escaped_filename . '\', ' . $cur_time . ', ' . $cur_file->size . ', \'Y\')';
         $i++;
     }
-    @$dbcon->query('INSERT INTO `filecache` (`id`, `path_hash`, `path_str`, `last_scan`, `size`, `valid`) ' . $sql_values . ' ON DUPLICATE KEY UPDATE `last_scan` = VALUES(`filecache`.`last_scan`), `valid`=\'Y\'');
+    @$dbcon->query('INSERT INTO `filecache` (`id`, `path_hash`, `path_str`, `path_filename`, `last_scan`, `size`, `valid`) ' . $sql_values . ' ON DUPLICATE KEY UPDATE `last_scan` = VALUES(`filecache`.`last_scan`), `valid`=\'Y\'');
 }
 
 
@@ -314,6 +386,7 @@ if($need_create_table)
     $create_sql .= '`id` BIGINT NOT NULL AUTO_INCREMENT,';
     $create_sql .= '`path_hash` CHAR(32) CHARACTER SET latin1 NOT NULL DEFAULT \'\' UNIQUE,';
     $create_sql .= '`path_str` VARCHAR(1024) CHARACTER SET utf8 NOT NULL,';
+    $create_sql .= '`path_filename` VARCHAR(128) CHARACTER SET utf8 NOT NULL DEFAULT \'\',';
     $create_sql .= '`last_scan` BIGINT NOT NULL,';
     $create_sql .= '`size` BIGINT NOT NULL,';
     $create_sql .= '`valid` ENUM(\'Y\',\'N\') NOT NULL DEFAULT \'Y\',';
@@ -321,7 +394,8 @@ if($need_create_table)
     $create_sql .= '`tagified` ENUM(\'Y\',\'N\') NOT NULL DEFAULT \'N\',';
     // maybe TODO for later: more fields e.g. hash, len
     $create_sql .= 'KEY(`id`),';
-    $create_sql .= 'INDEX(`path_hash`)';
+    $create_sql .= 'INDEX(`path_hash`),';
+    $create_sql .= 'INDEX(`path_filename`)';
     $create_sql .= ') ENGINE=InnoDB; ';
     // TABLE `playlists`
     $create_sql .= 'CREATE TABLE IF NOT EXISTS `playlists` (';
@@ -351,9 +425,10 @@ if($need_create_table)
     // TABLE `tags`
     $create_sql .= 'CREATE TABLE IF NOT EXISTS `tags` (';
     $create_sql .= '`id` BIGINT NOT NULL AUTO_INCREMENT UNIQUE,';
-    $create_sql .= '`tagname` VARCHAR(256) CHARACTER SET utf8 NOT NULL,';
+    $create_sql .= '`tagname` VARCHAR(128) CHARACTER SET utf8 NOT NULL,';
     $create_sql .= '`description` TEXT CHARACTER SET utf8 NULL,';
-    $create_sql .= 'KEY(`id`)';
+    $create_sql .= 'UNIQUE KEY(`id`),';
+    $create_sql .= 'UNIQUE KEY(`tagname`)';
     $create_sql .= ') ENGINE=InnoDB; ';
     // TABLE `relation_tags`
     $create_sql .= 'CREATE TABLE IF NOT EXISTS `relation_tags` (';
@@ -405,7 +480,8 @@ if(isset($_GET['ajax']))
             }
             $search_subject = $dbcon->real_escape_string($search_subject);
             $count_matches = 0;
-            $result_matches = @$dbcon->query('SELECT COUNT(`id`) AS \'count_matches\' FROM `filecache` WHERE `valid`=\'Y\' AND `path_str` LIKE \'%' . $search_subject . '%\' UNION SELECT COUNT(`id`) AS \'count_matches\' FROM `playlists` WHERE `name` LIKE \'%' . $search_subject . '%\'');
+
+            $result_matches = @$dbcon->query('SELECT COUNT(`filecache`.`id`) AS \'count_matches\' FROM `filecache` WHERE `filecache`.`valid`=\'Y\' AND (`filecache`.`path_filename` LIKE \'%' . $search_subject . '%\' OR `filecache`.`id`=ANY(SELECT DISTINCT `relation_tags`.`fid` FROM `relation_tags` WHERE `relation_tags`.`tid`= ANY(SELECT `tags`.`id` FROM `tags` WHERE `tagname` LIKE \'%' . $search_subject . '%\'))) UNION SELECT COUNT(`id`) AS \'count_matches\' FROM `playlists` WHERE `name` LIKE \'%' . $search_subject . '%\'');
             if(!(FALSE === $result_matches))
             {
                 while($cur_row = $result_matches->fetch_assoc())
@@ -416,7 +492,10 @@ if(isset($_GET['ajax']))
 
                 if(0 < $count_matches)
                 {
-                    $result_matches = @$dbcon->query('(SELECT `id`,`path_str`, \'file\' AS \'type\',`count_played` AS \'count_played\' FROM `filecache` WHERE `valid`=\'Y\' AND `path_str` LIKE \'%' . $search_subject . '%\') UNION (SELECT `id`, `name`, \'playlist\' AS \'type\', `count_played` AS \'count_played\' FROM `playlists` WHERE `name` LIKE \'%' . $search_subject . '%\') ORDER BY `type` DESC, `count_played` DESC, `path_str` ASC LIMIT ' . $search_offset . ',' . $AJAX_PAGE_LIMIT);
+                    //TODO: also show tags:
+                    //SELECT `filecache`.`path_str`, GROUP_CONCAT(`tags`.`tagname` SEPARATOR ', ') FROM `filecache` INNER JOIN `relation_tags` ON `filecache`.`id`=`relation_tags`.`fid` INNER JOIN `tags` ON `relation_tags`.`tid` = `tags`.`id` GROUP BY `filecache`.`id`;
+
+                    $result_matches = @$dbcon->query('(SELECT `id`,`path_str`, \'file\' AS \'type\',`count_played` AS \'count_played\' FROM `filecache` WHERE `valid`=\'Y\' AND (`filecache`.`path_filename` LIKE \'%' . $search_subject . '%\' OR `filecache`.`id`=ANY(SELECT DISTINCT `relation_tags`.`fid` FROM `relation_tags` WHERE `relation_tags`.`tid`= ANY(SELECT `tags`.`id` FROM `tags` WHERE `tagname` LIKE \'%' . $search_subject . '%\')))) UNION (SELECT `id`, `name`, \'playlist\' AS \'type\', `count_played` AS \'count_played\' FROM `playlists` WHERE `name` LIKE \'%' . $search_subject . '%\') ORDER BY `type` DESC, `count_played` DESC, `path_str` ASC LIMIT ' . $search_offset . ',' . $AJAX_PAGE_LIMIT);
                     if(!(FALSE === $result_matches))
                     {
                         echo "{\n\"success\": true,\n\"countMatches\":";
