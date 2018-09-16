@@ -895,6 +895,7 @@ var juffImg = {
 function PlaylistClass()
 {
   this.boundHtml;
+  this.titleHtml;
   this.listHtml;
   this.optionsHtml;
   this.htmlTrackCount = 0;
@@ -906,6 +907,7 @@ function PlaylistClass()
   this.playRandom = false;
   this.randomArr = new Array();
   this.randomOffset = 0;
+  this.playlistName = undefined;
   this.assumePlaylist = function()
   {
     if(playlistEle)
@@ -918,6 +920,9 @@ function PlaylistClass()
     this.htmlTrackCount = 0;
     this.boundHtml = myEle;
     playlistEle = myEle;
+    this.titleHtml = document.createElement("div");
+    this.titleHtml.setAttribute("class", "playlist_title");
+    this.titleHtml = this.boundHtml.appendChild(this.titleHtml);
     this.listHtml = document.createElement("div");
     this.listHtml.setAttribute("class", "playlist_list");
     this.listHtml = this.boundHtml.appendChild(this.listHtml);
@@ -1269,15 +1274,22 @@ function PlaylistClass()
      * elements, that does not work either.
      */
     audioPlayer.setAttribute("src", "");
+
+    playlistObj.setPlaylistName(undefined);
   }
   this.fetchPlaylist = function(playlistId, playlistName, enqueueWhere)
   {
     var req = new XMLHttpRequest();
     req.open("GET", "?ajax&request_playlist=" + encodeURIComponent(playlistId));
+    req.playlistName = playlistName;
     req.addEventListener("load", function(param) {
       var responseJSON = JSON.parse(param.target.responseText);
       if(responseJSON.success && responseJSON.matches)
       {
+        if(0 == playlistObj.tracks.length)
+        {
+          playlistObj.setPlaylistName(param.target.playlistName);
+        }
         for(var i = 0; i < responseJSON.matches.length; ++i)
         {
           if(enqueueWhere == "last") playlistObj.enqueueLast(responseJSON.matches[i].id, responseJSON.matches[i].type, responseJSON.matches[i].name);
@@ -1289,7 +1301,14 @@ function PlaylistClass()
   }
   this.save = function()
   {
-    var returnVal = prompt("Please enter name of Playlist:");
+    var returnVal;
+    if(playlistObj.playlistName && 0 < playlistObj.playlistName.length)
+    {
+      returnVal = prompt("Please enter name of Playlist:", playlistObj.playlistName);
+    } else
+    {
+      returnVal = prompt("Please enter name of Playlist:");
+    }
     if(returnVal)
     {
       playlistObj.myName = returnVal;
@@ -1304,6 +1323,16 @@ function PlaylistClass()
       req.addEventListener("load", function(param) { console.log(param.target.responseText); });
       req.setRequestHeader("Content-type", "application/x-www-form-urlencoded");
       req.send("playlist_name=" + encodeURIComponent(playlistObj.myName) + "&playlist_tracks=" + encodeURIComponent(idString));
+      playlistObj.setPlaylistName(returnVal);
+    }
+  }
+  this.setPlaylistName = function(playlistName)
+  {
+    playlistObj.playlistName = playlistName;
+    removeChilds(playlistObj.titleHtml);
+    if(playlistName)
+    {
+      playlistObj.titleHtml.appendChild(document.createTextNode("Playlist: " + playlistName));
     }
   }
 }
@@ -1402,6 +1431,11 @@ function ContextMenuClass(posX, posY, parentNode, optionsArr)
   BODY.appendChild(this.menuEle);
 }
 
+function onTagClicked(tagName)
+{
+  searchField.value = tagName;
+  ajax_matching_tracks(tagName, 0);
+}
 function search_keyup(eventObj)
 {
   var searchSubject = searchField.value;
@@ -1438,6 +1472,10 @@ function Tracklist(tracklistJSON)
       this.tracks.push(new TrackClass(tracklistJSON.matches[i].id, tracklistJSON.matches[i].type, tracklistJSON.matches[i].name, tracklistJSON.matches[i].countPlayed, tracklistJSON.matches[i].tags));
     }
   }
+  /* TODO: split up the code of this function
+   *  into separate specialized functions
+   *  because it's too long
+   */
   this.assumeSearchList = function()
   {
     removeChilds(searchListWrapper);
@@ -1507,10 +1545,29 @@ function Tracklist(tracklistJSON)
       for(var j = 0; j < this.tracks[i].tags.length; ++j)
       {
         var tagEle = document.createElement("div");
+        var tagName = this.tracks[i].tags[j];
         tagEle.setAttribute("class", "search_list_tag");
-        tagEle.appendChild(document.createTextNode(this.tracks[i].tags[j]));
+        tagEle.setAttribute("title", "search for \"" + tagName + "\" by right-clicking");
+        tagEle.appendChild(document.createTextNode(tagName));
+        tagEle.addEventListener("contextmenu", function(tagName) { return function(evt) { evt.stopPropagation(); evt.preventDefault(); onTagClicked(tagName); }; }(tagName));
         divEle.appendChild(tagEle);
       }
+      var countPlayedEle = document.createElement("div");
+      countPlayedEle.setAttribute("class", "search_list_count_played");
+      var playedText = "";
+      if(1 > this.tracks[i].countPlayed)
+      {
+          playedText = "not yet played";
+      } else if (1 == this.tracks[i].countPlayed)
+      {
+          playedText = "1 time played";
+      } else
+      {
+          playedText = this.tracks[i].countPlayed + " times played";
+      }
+      countPlayedEle.appendChild(document.createTextNode(playedText));
+      divEle.appendChild(countPlayedEle);
+
       linkEle.appendChild(divEle);
       searchListWrapper.appendChild(linkEle);
     }
@@ -1635,6 +1692,15 @@ document.addEventListener("DOMContentLoaded", init);
   padding: 1px 3px 1px 3px;
   border-radius: 5px;
 }
+.search_list_tag:hover {
+  background-color: #000000;
+  color: #ffffff;
+}
+.search_list_count_played {
+  font-size: 10pt;
+  clear: both;
+  color: #606060;
+}
 .search_label {
   font-size: 14pt;
 }
@@ -1700,6 +1766,17 @@ document.addEventListener("DOMContentLoaded", init);
 }
 .playlist {
   background-color: #000000;
+  color: #ffffff;
+}
+.playlist_title {
+  font-size: 16pt;
+  padding: 2px 0px 3px 10px;
+  background-color: #f0f0f0;
+  color: #404040;
+  font-weight: bold;
+  border-bottom: 3px solid #808080;
+  background-image: radial-gradient(circle at 20%, #ffffff 0%, #c8c8c8 100%);
+  box-shadow: inset 0px -5px 10px 3px #c0c0c0;
 }
 .playlist_list {
   max-height: 250px;
@@ -1712,7 +1789,7 @@ document.addEventListener("DOMContentLoaded", init);
 .playlist_element {
   border-bottom: 2px solid #a0a0a0;
   background-color: #000000;
-  color: #e0e0e0;
+  color: #d0d0d0;
   overflow: hidden;
   padding: 0.15em 0em 0.15em 0.1em;
 }
