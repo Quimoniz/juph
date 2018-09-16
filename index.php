@@ -78,7 +78,7 @@ function do_premature_disconnect()
 
 function tagify_filecache($dbcon)
 {
-    if(!dbcon)
+    if(!$dbcon)
     {
         return;
     }
@@ -492,25 +492,60 @@ if(isset($_GET['ajax']))
 
                 if(0 < $count_matches)
                 {
-                    //TODO: also show tags:
-                    //SELECT `filecache`.`path_str`, GROUP_CONCAT(`tags`.`tagname` SEPARATOR ', ') FROM `filecache` INNER JOIN `relation_tags` ON `filecache`.`id`=`relation_tags`.`fid` INNER JOIN `tags` ON `relation_tags`.`tid` = `tags`.`id` GROUP BY `filecache`.`id`;
 
                     $result_matches = @$dbcon->query('(SELECT `id`,`path_str`, \'file\' AS \'type\',`count_played` AS \'count_played\' FROM `filecache` WHERE `valid`=\'Y\' AND (`filecache`.`path_filename` LIKE \'%' . $search_subject . '%\' OR `filecache`.`id`=ANY(SELECT DISTINCT `relation_tags`.`fid` FROM `relation_tags` WHERE `relation_tags`.`tid`= ANY(SELECT `tags`.`id` FROM `tags` WHERE `tagname` LIKE \'%' . $search_subject . '%\')))) UNION (SELECT `id`, `name`, \'playlist\' AS \'type\', `count_played` AS \'count_played\' FROM `playlists` WHERE `name` LIKE \'%' . $search_subject . '%\') ORDER BY `type` DESC, `count_played` DESC, `path_str` ASC LIMIT ' . $search_offset . ',' . $AJAX_PAGE_LIMIT);
                     if(!(FALSE === $result_matches))
                     {
+                        $matches_arr = array();
+                        $select_sql = 'SELECT `relation_tags`.`fid` AS \'id\', GROUP_CONCAT(`tags`.`tagname`) AS \'tags\' FROM `relation_tags` INNER JOIN `tags` ON `relation_tags`.`tid`=`tags`.`id` WHERE ';
+                        // 'GROUP BY `relation_tags`.`fid`';
+                        $i = 0;
+                        while($cur_row = $result_matches->fetch_assoc())
+                        {
+                            $matches_item = array();
+                            $matches_item['id'] = (int) $cur_row['id'];
+                            $matches_item['type'] = $cur_row['type'];
+                            $matches_item['countPlayed'] = (int) $cur_row['count_played'];
+                            $matches_item['name'] = $cur_row['path_str'];
+                            $matches_item['tags'] = '';
+                            $matches_arr[$matches_item['id']] = $matches_item;
+                            if('file' == $matches_item['type'])
+                            {
+                                if(0 < $i)
+                                {
+                                    $select_sql .= ' OR ';
+                                }
+                                $select_sql .= '`relation_tags`.`fid`=' . $matches_item['id'];
+                                $i++;
+                            }
+                        }
+                        $select_sql .= ' GROUP BY `relation_tags`.`fid`';
+                        $tags_result = $dbcon->query($select_sql);
+                        while($cur_row = $tags_result->fetch_assoc())
+                        {
+                            $cur_id = (int) $cur_row['id'];
+                            if(isset($matches_arr[$cur_id]))
+                            {
+                                $matches_arr[$cur_id]['tags'] = $cur_row['tags'];
+                            }
+                        }
                         echo "{\n\"success\": true,\n\"countMatches\":";
                         echo $count_matches . ",\n\"pageLimit\":" . $AJAX_PAGE_LIMIT;
                         echo ",\n\"offsetMatches\":" . $search_offset . ",\n\"matches\": [\n";
                         $i = 0;
-                        while($cur_row = $result_matches->fetch_assoc())
+                        foreach($matches_arr as $cur_key => $cur_arr)
                         {
                             if(0 < $i) echo ",\n";
-                            echo "{ \"id\": " . $cur_row['id'] . ", \"type\": \"" . $cur_row['type'];
-                            echo "\",\"countPlayed\": " . $cur_row['id'];
-                            echo ",\"name\": \"" . js_escape($cur_row['path_str']) . "\"}";
+                            echo "{ \"id\": " . $cur_key . ", \"type\": \"" . $cur_arr['type'];
+                            echo "\",\"countPlayed\": " . $cur_arr['countPlayed'];
+                            echo ",\"name\": \"" . js_escape($cur_arr['name']) . "\"";
+                            echo ",\"tags\": \"" . js_escape($cur_arr['tags']) . "\"}";
                             $i++;
                         }
                         echo "]\n}";
+                    } else
+                    {
+                        server_error('database query failure', true);
                     }
                 } else
                 {
@@ -1273,10 +1308,12 @@ function PlaylistClass()
   }
 }
 /* TODO: extend this by adding field 'countPlayed' */
-function TrackClass(trackId, trackType, trackName)
+function TrackClass(trackId, trackType, trackName, trackCountPlayed, trackTags)
 {
   this.id = trackId;
   this.type = trackType;
+  this.countPlayed = trackCountPlayed;
+  this.tags = ("" + trackTags).split(",");
   this.name = trackName;
   this.beautifiedName = this.name;
   if("file" == this.type)
@@ -1398,7 +1435,7 @@ function Tracklist(tracklistJSON)
     this.pageLimit  = tracklistJSON.pageLimit;
     for(var i = 0; i < tracklistJSON.matches.length; ++i)
     {
-      this.tracks.push(new TrackClass(tracklistJSON.matches[i].id, tracklistJSON.matches[i].type, tracklistJSON.matches[i].name));
+      this.tracks.push(new TrackClass(tracklistJSON.matches[i].id, tracklistJSON.matches[i].type, tracklistJSON.matches[i].name, tracklistJSON.matches[i].countPlayed, tracklistJSON.matches[i].tags));
     }
   }
   this.assumeSearchList = function()
@@ -1467,6 +1504,13 @@ function Tracklist(tracklistJSON)
       var divEle = document.createElement("div");
       divEle.setAttribute("class", "search_list_element");
       divEle.appendChild(document.createTextNode(this.tracks[i].beautifiedName));
+      for(var j = 0; j < this.tracks[i].tags.length; ++j)
+      {
+        var tagEle = document.createElement("div");
+        tagEle.setAttribute("class", "search_list_tag");
+        tagEle.appendChild(document.createTextNode(this.tracks[i].tags[j]));
+        divEle.appendChild(tagEle);
+      }
       linkEle.appendChild(divEle);
       searchListWrapper.appendChild(linkEle);
     }
@@ -1581,6 +1625,15 @@ document.addEventListener("DOMContentLoaded", init);
   margin: 0.4em 0em 0.4em 0em;
   padding: 0em 0em 0.2em 0.3em;
   overflow: hidden;
+}
+.search_list_tag {
+  font-size: 10pt;
+  background-color: #dbdbdb;
+  color: #404040;
+  float: right;
+  margin-left: 6px;
+  padding: 1px 3px 1px 3px;
+  border-radius: 5px;
 }
 .search_label {
   font-size: 14pt;
