@@ -1655,6 +1655,9 @@ function beautifySongName(filename)
 document.addEventListener("DOMContentLoaded", init);
 </script>
 <style type="text/css">
+body {
+  font-family: Verdana, Sans, Sans-Serif;
+}
 .content_wrapper {
   margin: 0px auto 0px auto;
   width: 90%;
@@ -1666,14 +1669,20 @@ document.addEventListener("DOMContentLoaded", init);
 .right_wrapper {
   float: right;
   width: 45%;
+  background-color: #f0f0f0;
+  border-radius: 20px;
+  padding: 1em;
 }
 .search_input {
   width: 100%;
+  font-size: 20pt;
+  letter-spacing: 1px;
+  margin: 0.3em 0em 0em 0em;
   background-image: url(looking-glass.png);
   background-repeat: no-repeat;
   background-position: calc(100% - 10px) 0px;
   border-width: 4px;
-  border-radius: 3px;
+  border-radius: 5px;
 }
 .search_list_wrapper {
 }
@@ -1710,6 +1719,7 @@ document.addEventListener("DOMContentLoaded", init);
 }
 .paging_wrapper {
   font-family: Sans, Sans-Serif, Arial;
+  margin: 0.3em 0em 0.3em 0em;
 }
 .paging_filler {
   display: block;
@@ -1721,27 +1731,32 @@ document.addEventListener("DOMContentLoaded", init);
   display: block;
   float: left;
   min-width: 1.5em;
-  background-color: #e8e8e8;
+  background-color: #ffffff;
   /*margin: 0em 0.2em 0em 0.2em;*/
-  padding: 0.1em;
+  padding: 0.2em;
   text-align: center;
   color: #000000;
   font-weight: bold;
-  border-left:  3px solid #d0d0d0;
-  border-right: 3px solid #d0d0d0;
+  font-size: 14pt;
+  border-left:  3px solid #f0f0f0;
+  border-right: 3px solid #f0f0f0;
+}
+.paging_button:hover
+{
+  transform: scale(1.2);
 }
 .paging_button_first {
   display: block;
   margin-left: 0em;
   border-left: none;
-  border-top-left-radius: 7px;
-  border-bottom-left-radius: 7px;
+  border-top-left-radius: 9px;
+  border-bottom-left-radius: 9px;
 }
 .paging_button_last {
   display: block;
   border-right: none;
-  border-top-right-radius: 7px;
-  border-bottom-right-radius: 7px;
+  border-top-right-radius: 9px;
+  border-bottom-right-radius: 9px;
 }
 .paging_button:link, .paging_button:visited {
   text-decoration: none;
@@ -1788,32 +1803,33 @@ document.addEventListener("DOMContentLoaded", init);
 }
 .playlist_element {
   border-bottom: 2px solid #a0a0a0;
-  background-color: #000000;
-  color: #d0d0d0;
+  background-color: #c0c0c0;
+  color: #202020;
   overflow: hidden;
-  padding: 0.15em 0em 0.15em 0.1em;
+  padding: 0.15em 0em 0.45em 0.1em;
+  box-shadow: inset 0px -3px 3px 2px #808080;
 }
 .playlist_selected_element {
   color: #000000;
   background-color: #ffffff;
-  background-image: linear-gradient(to bottom, #ffffff 0%, #e8e8e8 85%, #a0a0a0 100%);
+  box-shadow: none;
+  background-image: linear-gradient(to bottom, #ffffff 0%, #e8e8e8 80%, #a0a0a0 100%);
 }
 .playlist_selected_element::before {
   content: "▶ ";
 }
 .playlist_option_wrapper {
-  background-color: #000000;
-  width: calc(100% - 4px);
+  background-color: #808080;
+  width: 100%;
   height: 42px;
 }
 .playlist_option_div {
   float: left;
-  width: calc(100% / 10);
+  width: calc(100% / 6);
   height: 34px;
   padding: 4px;
   background-color: #808080;
   text-align: center;
-  margin-right: calc(100% / 10);
   background-image: radial-gradient(ellipse at center, #000000 0%, #080808 20%, #303030 40%, #707070 80%, #b0b0b0 100%);
 /*
   border-top: 2px solid #e8e8e8;
@@ -1898,7 +1914,7 @@ document.addEventListener("DOMContentLoaded", init);
 </div>
 </div>
 <div class="right_wrapper">
-<label for="search_input" class="search_label">Suche:</label><br/>
+<label for="search_input" class="search_label">Search:</label><br/>
 <input type="text" id="search_input" class="search_input" size="20" />
 <div id="search_list_wrapper" class="search_list_wrapper">
 </div>
