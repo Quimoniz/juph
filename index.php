@@ -456,7 +456,7 @@ if($need_create_table)
 }
 
 //step 1c, handle ajax
-$AJAX_PAGE_LIMIT = 25;
+$AJAX_PAGE_LIMIT = 10;
 if(isset($_GET['ajax']))
 {
     prepare_premature_disconnect();
@@ -1637,6 +1637,8 @@ function beautifySongName(filename)
   var beautified = filename.replace(/\.[a-zA-Z0-9]{1,6}$/, "");
   beautified = beautified.replace(/_id[-_a-zA-Z0-9]{4,15}$/, "");
   beautified = beautified.replace(/_/g, " ");
+  beautified = beautified.replace(/^ +/g, "");
+  beautified = beautified.replace(/ +$/g, "");
   beautified = beautified.replace(/ HD$/i, "");
   beautified = beautified.replace(/ []$/, "");
   beautified = beautified.replace(/Official Music Video$/i, "");
