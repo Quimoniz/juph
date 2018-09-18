@@ -808,6 +808,7 @@ var playlistObj;
 var BODY;
 var contextMenu;
 var sessionId;
+var configurationEle;
 function init()
 {
   searchField = document.getElementById("search_input");
@@ -831,8 +832,38 @@ function init()
     return Math.max(BODY.scrollHeight, BODY.offsetHeight,
                     html.clientHeight, html.scrollHeight, html.offsetHeight);
   }
+  document.getElementById("img_gear").addEventListener("click", showConfiguration);
   sessionId = <?php echo "\"" . js_escape($SESSION_ID) . "\";";  ?>
   juffImg.init();
+}
+
+function showConfiguration()
+{
+  var rightWrapper = document.querySelector(".right_wrapper");
+  if(configurationEle)
+  {
+    configurationEle.parentNode.removeChild(configurationEle);
+    configurationEle = undefined;
+    for(var i = 0; i < rightWrapper.childNodes.length; ++i)
+    {
+      if(rightWrapper.childNodes[i].style)
+      {
+        rightWrapper.childNodes[i].style.display = "block";
+      }
+    }
+  } else
+  {
+    for(var i = 0; i < rightWrapper.childNodes.length; ++i)
+    {
+      if(rightWrapper.childNodes[i].style)
+      {
+        rightWrapper.childNodes[i].style.display = "none";
+      }
+    }
+    configurationEle = document.createElement("div");
+    configurationEle.appendChild(document.createTextNode("Configuration:"));
+    configurationEle = rightWrapper.appendChild(configurationEle);
+  }
 }
 var juffImg = {
   imgArr: [
@@ -1929,6 +1960,25 @@ body {
   height: 100%;
   background-color: rgba(64,64,64,0.2);
 }
+.options_wrapper {
+  position: absolute;
+  right: 0px;
+  top: 0px;
+}
+#img_gear {
+  margin: 10px 10px 0px 0px;
+}
+#img_gear:hover {
+  animation: turn_gear 3.5s linear infinite;
+}
+@keyframes turn_gear {
+  0%   { transform: rotate(0); }
+  20%  { transform: rotate(60deg); }
+  40%  { transform: rotate(120deg); }
+  60%  { transform: rotate(180deg); }
+  80%  { transform: rotate(240deg); }
+  100% { transform: rotate(300deg); }
+}
 </style>
 </head>
 <body>
@@ -1948,6 +1998,9 @@ body {
 <div id="search_list_wrapper" class="search_list_wrapper">
 </div>
 </div>
+</div>
+<div class="options_wrapper">
+<img id="img_gear" src="gear.png" width="50" height="51" />
 </div>
 </body>
 </html>
