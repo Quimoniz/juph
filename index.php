@@ -1472,18 +1472,19 @@ function ajax_matching_tracks(searchSubject, offset)
   ajax.open("GET", "?ajax&matching_tracks=" + encodeURIComponent(searchSubject) + "&matching_offset=" + encodeURIComponent(offset));
   ajax.addEventListener("load", function(param) {
     console.log("Request took " + (((new Date()).getTime() - param.target.requestSendedTime)/1000) + " seconds");
-    process_matching_tracks(param.target.responseText);
+    process_matching_tracks(param.target.responseText, param.target.requestSendedTime);
    });
   ajax.requestSendedTime = (new Date()).getTime();
   ajax.send();
 }
 var currentTracklist = undefined;
-function Tracklist(tracklistJSON)
+function Tracklist(tracklistJSON, requestSendedTime)
 {
   this.tracks = new Array();
   this.pageLimit = 100;
   this.pageOffset = 0;
   this.matchCount = 0;
+  this.requestSendedTime = requestSendedTime;
   if(tracklistJSON.success)
   {
     this.matchCount = tracklistJSON.countMatches;
@@ -1595,8 +1596,12 @@ function Tracklist(tracklistJSON)
     }
   }
 }
-function process_matching_tracks(responseText)
+function process_matching_tracks(responseText, requestSendedTime)
 {
+  if(currentTracklist && currentTracklist.requestSendedTime > requestSendedTime)
+  {
+    return;
+  }
   removeChilds(searchListWrapper);
   var responseJSON;
   try
@@ -1610,7 +1615,7 @@ function process_matching_tracks(responseText)
   }
   if(responseJSON)
   {
-    currentTracklist = new Tracklist(responseJSON);
+    currentTracklist = new Tracklist(responseJSON, requestSendedTime);
     currentTracklist.assumeSearchList();
   }
 }
