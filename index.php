@@ -1050,11 +1050,33 @@ function PlaylistClass()
   {
     this.tracks.splice(position, 1);
     this.listHtml.removeChild(this.listHtml.childNodes[position]);
+    if(position < playlistObj.offset)
+    {
+      playlistObj.offset--;
+    }
     if(position < (this.tracks.length - 1))
     {
       for(var i = position; i < this.tracks.length; ++i)
       {
-        this.updateListElement(position);
+        this.updateListElement(i);
+      }
+    }
+    if(playlistObj.randomArr && 0 < playlistObj.randomArr.length)
+    {
+      for(var i = 0; i < playlistObj.randomArr.length; ++i)
+      {
+        if(playlistObj.randomArr[i] > position)
+        {
+          playlistObj.randomArr[i]--;
+        } else if(playlistObj.randomArr[i] == position)
+        {
+          playlistObj.randomArr.splice(i, 1);
+          if(playlistObj.randomOffset > i)
+          {
+            playlistObj.randomOffset--;
+          }
+          i--;
+        }
       }
     }
   };
