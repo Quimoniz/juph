@@ -28,13 +28,13 @@ $SESSION_ID = '';
 
 function gen_pwd($pwd_len = 15, $use_special_chars = true)
 {
-    $chr_grp = array(array(48,57),array(65,91),array(97,123));
+    $chr_grp = array(array(48,57),array(65,90),array(97,122));
     $chr_used_grp = array(0,0,0);
     if($use_special_chars)
     {
-        $chr_grp[] = array(35,48);
+        $chr_grp[] = array(35,47);
         $chr_grp[] = array(58,63);
-        $chr_grp[] = array(91,97);
+        $chr_grp[] = array(91,96);
         $chr_used_grp[] = 0;
         $chr_used_grp[] = 0;
         $chr_used_grp[] = 0;
@@ -169,6 +169,98 @@ function tagify_filecache($dbcon)
             $dbcon->query($update_sql);
         }
     }
+}
+function scan_music_dir($MUSIC_DIR_ROOT, $dbcon)
+{
+    $scan_complete = False;
+    $scan_filecount = 0;
+    $scan_errormessage='';
+    $i = 0; // total count of files
+
+    if(is_dir($MUSIC_DIR_ROOT))
+    {
+        //scan algorithm
+        $dir_handle = opendir($MUSIC_DIR_ROOT);
+        $dir_names = array();
+        $dir_names[] = $MUSIC_DIR_ROOT;
+        $cur_dirbase = $MUSIC_DIR_ROOT . '/';
+        $dircache = array();
+        $files_to_add = array();
+        $FILES_UNTIL_DB_FLUSH = 100;
+        $j = 0; // files in $files_to_add
+        $k = 0;
+        $dircache[] = array();
+        while(-1 < $k)
+        {
+            $cur_name = readdir($dir_handle);
+            if(!(FALSE === $cur_name))
+            {
+                if(!('.' == $cur_name || '..' == $cur_name))
+                {
+                    if(is_dir($cur_dirbase . $cur_name))
+                    {
+                        $dircache[$k][] = $cur_name;
+                    } else // do not discern between regular files and links at this point
+                    {
+                        $files_to_add[] = new MinimalisticFile($cur_dirbase, $cur_name);
+                        $j++;
+                        $i++;
+                    }
+                    if($FILES_UNTIL_DB_FLUSH === $j)
+                    {
+                        //Do db flush
+                        //      either insert or update the respective entries in table `filecache`
+                        //      best: use a mysql stored procedure for that, instead of doing checks in PHP
+                        //      (1. check if already there 'SELECT', 2. if so do an 'UPDATE', 3 otherwise do 'INSERT')
+                        flush_files_to_db($dbcon, $files_to_add);
+                        //reset cached files in array
+                        $files_to_add = array();
+                        $j = 0;
+                    }
+                }
+            } else // finished scanning this directory
+            {
+                closedir($dir_handle);
+                $dir_handle = NULL;
+                //pick next directory for next call to readdir
+                while(is_null($dir_handle) && -1 < $k)
+                {
+                    if(0 < count($dircache[$k]))
+                    {
+                        //descend
+                        $descend_to_dir = array_shift($dircache[$k]);
+                        $dircache[] = array();
+                        $k++;
+                        $dir_names[] = $descend_to_dir;
+                        $cur_dirbase .= $descend_to_dir . '/';
+                        $dir_handle = opendir($cur_dirbase); 
+                    } else
+                    {
+                        //ascend, adjust $cur_dirbase and $dir_names
+                        $k--;
+                        if(-1 < $k)
+                        {
+                            //pop the deepest array from $dircache
+                            array_pop($dircache);
+                            array_pop($dir_names);
+                            $cur_dirbase = implode('/', $dir_names) . '/';
+                        }
+                    }
+                    //loop will end if k has been decremented to -1
+                }
+            }
+        }
+        //do db flush from $files_to_add
+        flush_files_to_db($dbcon, $files_to_add);
+    } else
+    {
+        $scan_errormessage .= 'Configured MUSIC_DIR_ROOT "' . $MUSIC_DIR_ROOT . '" not accessible as a directory.';
+    }
+    
+    //invalidate all files in table filecache which do not have the timestamp of the current scan
+    @$dbcon->query('UPDATE `filecache` SET `valid`=\'N\' WHERE `last_scan`!=' . $cur_time);
+    //enter scan results into database (i.e. enter $cur_time, $scan_complete, $scan_filecount, $san_errormessage)
+    @$dbcon->query('INSERT INTO `scans` (`time`, `completed`, `error_message`, `files_scanned`) VALUES (' . $cur_time . ', \'' . (0 < strlen($scan_errormessage) ? 'N' : 'Y') . '\', \'' . $dbcon->real_escape_string($scan_errormessage) . '\', ' . $i . ')');
 }
 
 class MinimalisticFile {
@@ -646,6 +738,10 @@ if(isset($_GET['ajax']))
                 echo "{ \"success\": true }";
             }
         }
+    } else if(isset($_GET['scan_music_dir']))
+    {
+        scan_music_dir($CONFIG_VAR['MUSIC_DIR_ROOT'], $dbcon);
+        echo "{ \"success\": true }";
     } else if(isset($_GET['popular']))
     {
         server_error("Not yet implemented.", true);
@@ -665,7 +761,7 @@ if(!(FALSE === $result) && 0 < $result->num_rows)
     $last_scan_row = $result->fetch_assoc();
     $last_scan_time = (int) $last_scan_row['time'];
     $last_scan_completed = $last_scan_row['completed'];
-    if($last_scan_time >= ($cur_time - 3600) && 'Y' == $last_scan_completed)
+    if($last_scan_time >= ($cur_time - 86400 * 7) && 'Y' == $last_scan_completed)
     {
         $need_scan_music_dir = False;
     }
@@ -675,95 +771,7 @@ if(!(FALSE === $result) && 0 < $result->num_rows)
 //DONE: tested this section with detailed output of found files
 if($need_scan_music_dir)
 {
-    $scan_complete = False;
-    $scan_filecount = 0;
-    $scan_errormessage='';
-    $i = 0; // total count of files
-
-    if(is_dir($CONFIG_VAR['MUSIC_DIR_ROOT']))
-    {
-        //scan algorithm
-        $dir_handle = opendir($CONFIG_VAR['MUSIC_DIR_ROOT']);
-        $dir_names = array();
-        $dir_names[] = $CONFIG_VAR['MUSIC_DIR_ROOT'];
-        $cur_dirbase = $CONFIG_VAR['MUSIC_DIR_ROOT'] . '/';
-        $dircache = array();
-        $files_to_add = array();
-        $FILES_UNTIL_DB_FLUSH = 100;
-        $j = 0; // files in $files_to_add
-        $k = 0;
-        $dircache[] = array();
-        while(-1 < $k)
-        {
-            $cur_name = readdir($dir_handle);
-            if(!(FALSE === $cur_name))
-            {
-                if(!('.' == $cur_name || '..' == $cur_name))
-                {
-                    if(is_dir($cur_dirbase . $cur_name))
-                    {
-                        $dircache[$k][] = $cur_name;
-                    } else // do not discern between regular files and links at this point
-                    {
-                        $files_to_add[] = new MinimalisticFile($cur_dirbase, $cur_name);
-                        $j++;
-                        $i++;
-                    }
-                    if($FILES_UNTIL_DB_FLUSH === $j)
-                    {
-                        //Do db flush
-                        //      either insert or update the respective entries in table `filecache`
-                        //      best: use a mysql stored procedure for that, instead of doing checks in PHP
-                        //      (1. check if already there 'SELECT', 2. if so do an 'UPDATE', 3 otherwise do 'INSERT')
-                        flush_files_to_db($dbcon, $files_to_add);
-                        //reset cached files in array
-                        $files_to_add = array();
-                        $j = 0;
-                    }
-                }
-            } else // finished scanning this directory
-            {
-                closedir($dir_handle);
-                $dir_handle = NULL;
-                //pick next directory for next call to readdir
-                while(is_null($dir_handle) && -1 < $k)
-                {
-                    if(0 < count($dircache[$k]))
-                    {
-                        //descend
-                        $descend_to_dir = array_shift($dircache[$k]);
-                        $dircache[] = array();
-                        $k++;
-                        $dir_names[] = $descend_to_dir;
-                        $cur_dirbase .= $descend_to_dir . '/';
-                        $dir_handle = opendir($cur_dirbase); 
-                    } else
-                    {
-                        //ascend, adjust $cur_dirbase and $dir_names
-                        $k--;
-                        if(-1 < $k)
-                        {
-                            //pop the deepest array from $dircache
-                            array_pop($dircache);
-                            array_pop($dir_names);
-                            $cur_dirbase = implode('/', $dir_names) . '/';
-                        }
-                    }
-                    //loop will end if k has been decremented to -1
-                }
-            }
-        }
-        //do db flush from $files_to_add
-        flush_files_to_db($dbcon, $files_to_add);
-    } else
-    {
-        $scan_errormessage .= 'Configured MUSIC_DIR_ROOT "' . $CONFIG_VAR['MUSIC_DIR_ROOT'] . '" not accessible as a directory.';
-    }
-    
-    //invalidate all files in table filecache which do not have the timestamp of the current scan
-    @$dbcon->query('UPDATE `filecache` SET `valid`=\'N\' WHERE `last_scan`!=' . $cur_time);
-    //enter scan results into database (i.e. enter $cur_time, $scan_complete, $scan_filecount, $san_errormessage)
-    @$dbcon->query('INSERT INTO `scans` (`time`, `completed`, `error_message`, `files_scanned`) VALUES (' . $cur_time . ', \'' . (0 < strlen($scan_errormessage) ? 'N' : 'Y') . '\', \'' . $dbcon->real_escape_string($scan_errormessage) . '\', ' . $i . ')');
+    scan_music_dir($CONFIG_VAR['MUSIC_DIR_ROOT'], $dbcon);
 }
 
 //step 3b, load all playlists
@@ -809,6 +817,7 @@ var BODY;
 var contextMenu;
 var sessionId;
 var configurationEle;
+var ajax;
 function init()
 {
   searchField = document.getElementById("search_input");
@@ -860,10 +869,79 @@ function showConfiguration()
         rightWrapper.childNodes[i].style.display = "none";
       }
     }
-    configurationEle = document.createElement("div");
-    configurationEle.appendChild(document.createTextNode("Configuration:"));
-    configurationEle = rightWrapper.appendChild(configurationEle);
+    configurationEle = advancedCreateElement("div", rightWrapper, "configuration_wrapper");
+    var titleEle = advancedCreateElement("div", configurationEle, "configuration_title", undefined, "Configuration");
+    var logOutButton = advancedCreateElement("button", configurationEle, "configuration_button", undefined, "Log Out");
+    logOutButton.addEventListener("click", doLogOut);
+    var rescanButton = advancedCreateElement("button", configurationEle, "configuration_button", undefined, "Rescan all files");
+    rescanButton.addEventListener("click", function () { if(confirm("Are you sure you want to rescan all files?")) { configurationRescanAllFiles(); } });
+    var sessionIdEle = advancedCreateElement("div", configurationEle, "configuration_session_id", undefined, "Session-Id: " + sessionId);
+    
   }
+}
+function configurationRescanAllFiles()
+{
+  if(configurationEle)
+  {
+    for(var arrEles = document.querySelectorAll(".configuration_button"), i = 0; i < arrEles.length; ++i)
+    {
+      arrEles[i].disabled = true;
+    }
+    advancedCreateElement("br", configurationEle);
+    var processEle = advancedCreateElement("div", configurationEle, "configuration_processing", undefined, ".");
+    var req = new XMLHttpRequest();
+    req.open("GET", "?ajax&scan_music_dir");
+    req.addEventListener("load", function(processEle) {
+      return function(evt) {
+        //processEle.parentNode.removeChild(processEle);
+        var jsonText = evt.target.responseText;
+        var jsonObj;
+        try {
+          jsonObj = JSON.parse(jsonText);
+        } catch(exc)
+        {
+        }
+        if(jsonObj && jsonObj.success)
+        {
+          processEle.firstChild.nodeValue="Successfully rescanned Music Dir";
+        } else
+        {
+          processEle.firstChild.nodeValue="Error occured when trying to rescan";
+          console.log(jsonText);
+        }
+        for(var arrEles = document.querySelectorAll(".configuration_button"), i = 0; i < arrEles.length; ++i)
+        {
+          arrEles[i].disabled = false;
+        }
+     }; }(processEle));
+    req.send();
+    ajax = req;
+
+    setTimeout(updateProcessEle, 200);
+    
+  }
+}
+function updateProcessEle()
+{
+  if(4 > ajax.readyState)
+  {
+    var processEle = document.querySelector(".configuration_processing");
+    if(processEle)
+    {
+      processEle.firstChild.nodeValue += ".";
+      setTimeout(updateProcessEle, 200);
+    }
+  }
+}
+function doLogOut()
+{
+  var splitCookies = document.cookie.split(";");
+  for(var i = 0; i < splitCookies.length; ++i)
+  {
+    var cookieName = splitCookies[i].match(/ *([^=]*)/)[1];
+    document.cookie = cookieName + "=;expires=" + (new Date(0)).toGMTString();
+  }
+  location.reload();
 }
 var juffImg = {
   imgArr: [
@@ -1678,6 +1756,34 @@ function searchTrackLeftclicked(trackId, trackType, trackName)
     playlistObj.play();
   }
 }
+function advancedCreateElement(tagName, parentNode, className, styles, text)
+{
+  if(!tagName)
+  {
+    return;
+  }
+  var ele = document.createElement(tagName);
+  if(className)
+  {
+    ele.setAttribute("class", className);
+  }
+  if(styles)
+  {
+    ele.setAttribute("style", styles);
+  }
+  if(text)
+  {
+    ele.appendChild(document.createTextNode(text));
+  }
+  if(parentNode)
+  {
+    ele = parentNode.appendChild(ele);
+  } else
+  {
+    ele = BODY.appendChild(ele);
+  }
+  return ele;
+}
 function removeChilds(parentNode)
 {
   for(var i = parentNode.childNodes.length - 1; i >= 0; i--)
@@ -1978,6 +2084,15 @@ body {
   60%  { transform: rotate(180deg); }
   80%  { transform: rotate(240deg); }
   100% { transform: rotate(300deg); }
+}
+.configuration_title {
+  font-size: 20pt;
+}
+.configuration_button {
+  
+}
+.configuration_session_id {
+  word-spacing: 1em;
 }
 </style>
 </head>
