@@ -400,7 +400,7 @@ if($access_granted)
         $SESSION_ID = $_COOKIE['session_id'];
     } else
     {
-        $SESSION_ID = gen_pwd(25, false);
+        $SESSION_ID = gen_pwd(32, false);
     }
     setcookie('session_id', $SESSION_ID, time() + 86400 * 30);
 } else
@@ -488,6 +488,14 @@ if($need_create_table)
     $create_sql .= 'KEY(`id`),';
     $create_sql .= 'INDEX(`path_hash`),';
     $create_sql .= 'INDEX(`path_filename`)';
+    $create_sql .= ') ENGINE=InnoDB; ';
+    // TABLE `splaylist`
+    $create_sql .= 'CREATE TABLE IF NOT EXISTS `session_playlist` (';
+    $create_sql .= '`session_id` CHAR(32) CHARACTER SET latin1 NOT NULL,';
+    $create_sql .= '`fid` BIGINT NOT NULL,';
+    $create_sql .= '`prank` BIGINT NOT NULL,';
+    $create_sql .= '`options` VARCHAR(1024) CHARACTER SET utf8 NULL DEFAULT \'{}\'';
+    $create_sql .= 'KEY(`session_id`, `fid`, `prank`)';
     $create_sql .= ') ENGINE=InnoDB; ';
     // TABLE `playlists`
     $create_sql .= 'CREATE TABLE IF NOT EXISTS `playlists` (';
@@ -650,6 +658,8 @@ if(isset($_GET['ajax']))
         }
     } else if(isset($_GET['request_track']))
     {
+//TODO: consider this: https://stackoverflow.com/questions/1012437/uses-of-content-disposition-in-an-http-response-header#1012461
+//TODO: consider this: https://stackoverflow.com/questions/157318/resumable-downloads-when-using-php-to-send-the-file#157447
         $target_id = (int) $_GET['request_track'];
         if(0 < $target_id && 9223372036854776000 > $target_id)
         {
@@ -729,7 +739,11 @@ if(isset($_GET['ajax']))
                 $insert_sql .= '(' . $playlist_db_id . ', ' . $curFid . ', ' . $i . ')';
                 $i++;
             }
-            $result = $dbcon->query($insert_sql);
+            $result = true;
+            if(1 < $i)
+            {
+                $result = $dbcon->query($insert_sql);
+            }
             if(FALSE === $result)
             {
                 server_error("Could not enter playlist items into playlist", true);
@@ -737,6 +751,72 @@ if(isset($_GET['ajax']))
             {
                 echo "{ \"success\": true }";
             }
+        }
+    } else if(isset($_GET['request_session_playlist']))
+    {
+        $param_session_id = $_GET['request_session_playlist'];
+        //only allow alphanumeric characters
+        $param_session_id = preg_replace("[^0-9A-Za-z]", "", $param_session_id);
+        $result = @$dbcon->query('SELECT `filecache`.`id` AS \'id\', \'file\' AS \'type\', `filecache`.`path_str` AS \'name\' FROM `session_playlist` INNER JOIN `filecache` ON `session_playlist`.`fid`=`filecache`.`id` WHERE `session_playlist`.`session_id`=\'' . $param_session_id . '\' ORDER BY `session_playlist`.`prank` ASC');
+        if(!(FALSE === $result))
+        {
+          echo "{\n\"success\": true,\n\"matches\": [";
+          for($i = 0; $cur_row = $result->fetch_assoc(); $i++)
+          {
+            if(0 < $i) echo ",\n";
+            echo "{ \"id\": " . $cur_row['id'] . ", \"type\": \"" . $cur_row['type'] . "\",\"name\": \"" . js_escape($cur_row['name']) . "\"}";
+          }
+          echo "]\n}";
+        } else {
+          server_error("Error when looking up playlist", false);
+        }
+    } else if(isset($_GET['put_session_playlist']))
+    {
+        $param_session_id = $_GET['put_session_playlist'];
+        //only allow alphanumeric characters
+        $param_session_id = preg_replace("[^0-9A-Za-z]", "", $param_session_id);
+        if(isset($_POST['tracks']))
+        {
+            $arr_of_tracks = array();
+            foreach(explode(',', $_POST['tracks']) as $curFid)
+            {
+                if(is_numeric($curFid))
+                {
+                    $arr_of_tracks[] = (int) $curFid;
+                }
+            }
+
+            $dbcon->query('DELETE FROM `session_playlist` WHERE `session_id`=\'' . $param_session_id . '\'');
+
+            if(0 < count($arr_of_tracks))
+            {
+                $cur_rank = 1;
+                $insert_sql = 'INSERT INTO `session_playlist` (`session_id`,`fid`,`prank`) VALUES';
+                foreach($arr_of_tracks as $cur_track)
+                {
+                    if(1 < $cur_rank)  $insert_sql .= ', ';
+                    $insert_sql .= '(\'' . $param_session_id . '\', ' . $cur_track . ', ' . $cur_rank . ')';
+                    $cur_rank++;
+                }
+                $result = true;
+                if(1 < $cur_rank)
+                {
+                    $result = $dbcon->query($insert_sql);
+                }
+                if(FALSE === $result)
+                {
+                    server_error("Could not store session playlist", true);
+                } else
+                {
+                    echo "{ \"success\": true }";
+                }
+            } else
+            {
+                echo "{ \"success\": true }";
+            }
+        } else
+        {
+            client_error("Parameter tracks not set", true);
         }
     } else if(isset($_GET['scan_music_dir']))
     {
@@ -844,6 +924,9 @@ function init()
   document.getElementById("img_gear").addEventListener("click", showConfiguration);
   sessionId = <?php echo "\"" . js_escape($SESSION_ID) . "\";";  ?>
   juffImg.init();
+
+  //initialize Playlist with previous session's playlist
+  playlistObj.fetchSessionPlaylist();
 }
 
 function showConfiguration()
@@ -1017,6 +1100,7 @@ function PlaylistClass()
   this.randomArr = new Array();
   this.randomOffset = 0;
   this.playlistName = undefined;
+  this.lastChangeTime = 0;
   this.assumePlaylist = function()
   {
     if(playlistEle)
@@ -1057,6 +1141,45 @@ function PlaylistClass()
     this.optionsHtml.childNodes[3].addEventListener("click", playlistObj.save);
     this.optionsHtml.childNodes[4].addEventListener("click", playlistObj.clearPlaylist);
   }
+  this.fetchSessionPlaylist = function()
+  {
+    var req = new XMLHttpRequest();
+    req.open("GET", "?ajax&request_session_playlist=" + encodeURIComponent(sessionId));
+    req.addEventListener("load", function(param) {
+      var responseJSON = JSON.parse(param.target.responseText);
+      if(responseJSON.success && responseJSON.matches)
+      {
+        for(var i = 0; i < responseJSON.matches.length; ++i)
+        {
+          playlistObj.enqueueLast(responseJSON.matches[i].id, responseJSON.matches[i].type, responseJSON.matches[i].name);
+        }
+      }
+    });
+    req.send();
+  }
+  this.doCommitIfNoRecentChange = function(paramLastChangeTime)
+  {
+    if(playlistObj.lastChangeTime == paramLastChangeTime)
+    {
+      var idString = "";
+      for(var i = 0; i < playlistObj.tracks.length; ++i)
+      {
+        if(0 < i) idString += ",";
+        idString += "" + playlistObj.tracks[i].id;
+      }
+      var req = new XMLHttpRequest();
+      req.open("POST", "?ajax&put_session_playlist=" + sessionId);
+      req.addEventListener("load", function(param) { console.log(param.target.responseText); });
+      req.setRequestHeader("Content-type", "application/x-www-form-urlencoded");
+      req.send("tracks=" + encodeURIComponent(idString));
+    }
+  }
+  this.changedPlaylist = function()
+  {
+    var curTime = (new Date()).getTime();
+    this.lastChangeTime = (new Date()).getTime();
+    setTimeout(function(paramLastChangeTime) { return function() { playlistObj.doCommitIfNoRecentChange(paramLastChangeTime); }; }(curTime), 2000);
+  }
   this.enqueueLast = function(trackId, trackType, trackName)
   {
     if("file" == trackType)
@@ -1072,6 +1195,7 @@ function PlaylistClass()
     {
       this.fetchPlaylist(trackId, trackName, "last");
     }
+    this.changedPlaylist();
   }
   this.enqueueNext = function(trackId, trackType, trackName)
   {
@@ -1102,6 +1226,7 @@ function PlaylistClass()
     {
       this.fetchPlaylist(trackId, trackName, "next");
     }
+    this.changedPlaylist();
   }
   this.addTrackHtml = function(trackObj, position)
   {
@@ -1188,6 +1313,7 @@ function PlaylistClass()
         }
       }
     }
+    this.changedPlaylist();
   };
   this.scrollTo = function(offset)
   {
@@ -1407,6 +1533,7 @@ function PlaylistClass()
     audioPlayer.setAttribute("src", "");
 
     playlistObj.setPlaylistName(undefined);
+    playlistObj.changedPlaylist();
   }
   this.fetchPlaylist = function(playlistId, playlistName, enqueueWhere)
   {
