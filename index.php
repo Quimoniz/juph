@@ -534,7 +534,7 @@ if($need_create_table)
     $create_sql .= 'CREATE TABLE IF NOT EXISTS `relation_tags` (';
     $create_sql .= '`fid` BIGINT NOT NULL,';
     $create_sql .= '`tid` BIGINT NOT NULL,';
-    $create_sql .= 'KEY(`fid`, `tid`),';
+    $create_sql .= 'CONSTRAINT \'tfindex\' UNIQUE KEY(`fid`, `tid`),';
     $create_sql .= 'FOREIGN KEY fk_tfile(`fid`) ';
     $create_sql .= 'REFERENCES `filecache`(`id`) ';
     $create_sql .= 'ON DELETE CASCADE ';
@@ -689,17 +689,27 @@ if(isset($_GET['ajax']))
                     
                     if(0 != $file_start || -1 != $file_end)
                     {
-                        if(0 < $file_start)
+                        $file_handle = fopen($result_path, 'r');
+                        $file_filesize = filesize($result_path);
+                        if($file_start < $file_filesize)
                         {
-                            $file_handle = fopen($result_path, 'r');
-                            fseek($file_handle, $file_handle);
+                            if(0 < $file_start)
+                            {
+                                fseek($file_handle, $file_start);
+                            } else {
+                                $file_start = 0;
+                            }
                             if(-1 == $file_end)
                             {
-                                echo fread($file_handle, filesize($result_path) - $file_start);
-                            } else {
-                                echo fread($file_handle, $file_end - $file_start);
+                                $file_end = $file_filesize;
                             }
+                            header('HTTP/1.1 206 Partial Content');
+                            header('Content-Range: bytes ' . $file_start . '-' . ($file_end - 1) . '/' . $file_filesize);
+                            echo fread($file_handle, $file_end - $file_start);
                             fclose($file_handle);
+                        } else
+                        {
+                            client_error('416 Requested range not satisfiable');
                         }
                     } else {
                         // "If you just want to get the contents of a file into a string,
