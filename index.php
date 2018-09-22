@@ -658,12 +658,10 @@ if(isset($_GET['ajax']))
         }
     } else if(isset($_GET['request_track']))
     {
-//TODO: consider this: https://stackoverflow.com/questions/1012437/uses-of-content-disposition-in-an-http-response-header#1012461
-//TODO: consider this: https://stackoverflow.com/questions/157318/resumable-downloads-when-using-php-to-send-the-file#157447
         $target_id = (int) $_GET['request_track'];
         if(0 < $target_id && 9223372036854776000 > $target_id)
         {
-            $result_raw = @$dbcon->query('SELECT `path_str`, `valid` FROM `filecache` WHERE `id`=' . $target_id);
+            $result_raw = @$dbcon->query('SELECT `path_str`, `valid` FROM `filecache` WHERE `id`=' . $target_id . ' AND `valid`=\'Y\'');
             if(!(FALSE === $result_raw) && 0 < $result_raw->num_rows)
             {
                 $result_row = $result_raw->fetch_assoc();
@@ -671,12 +669,55 @@ if(isset($_GET['ajax']))
                 if('Y' == $result_row['valid'] && file_exists($result_path))
                 {
                     @$dbcon->query('UPDATE `filecache` SET `count_played`=`count_played`+1 WHERE `filecache`.`id`=' . $target_id);
-                    $target_data = file_get_contents($result_path);
                     header('Content-Type: audio/mp3');
                     header('Content-Disposition: inline; filename="' . str_replace(array("\"", "\\"), array("\\\"", "\\\\"), basename($result_row['path_str'])) . '"');
-                    echo $target_data;
+                    header('Accept-Ranges: bytes');
+                    $file_start = 0;
+                    $file_end = -1;
+                    if(isset($_SERVER['HTTP_RANGE']))
+                    {
+                        preg_match('/bytes=([0-9]+)-([0-9]+)?/', $_SERVER['HTTP_RANGE'], $byte_matches);
+                        if($byte_matches && 1 < count($byte_matches))
+                        {
+                            $file_start = (int) $byte_matches[1];
+                            if(2 < count($byte_matches) && ((int)$byte_matches[2]) > $file_start)
+                            {
+                                $file_end = (int) $byte_matches[2];
+                            }
+                        }
+                    }
+                    
+                    if(0 != $file_start || -1 != $file_end)
+                    {
+                        if(0 < $file_start)
+                        {
+                            $file_handle = fopen($result_path, 'r');
+                            fseek($file_handle, $file_handle);
+                            if(-1 == $file_end)
+                            {
+                                echo fread($file_handle, filesize($result_path) - $file_start);
+                            } else {
+                                echo fread($file_handle, $file_end - $file_start);
+                            }
+                            fclose($file_handle);
+                        }
+                    } else {
+                        // "If you just want to get the contents of a file into a string,
+                        //  use file_get_contents() as it has much better performance
+                        //  than the code above." - documentation from fread()
+                        echo  file_get_contents($result_path);
+                    }
+                } else
+                {
+                    server_error('Could not locate file');
                 }
+            } else
+            {
+                server_error('no such database entry');
             }
+        } else
+        {
+            client_error('no');
         }
     } else if(isset($_GET['request_playlist']))
     {
