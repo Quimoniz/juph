@@ -673,6 +673,7 @@ if(isset($_GET['ajax']))
                     @$dbcon->query('UPDATE `filecache` SET `count_played`=`count_played`+1 WHERE `filecache`.`id`=' . $target_id);
                     $target_data = file_get_contents($result_path);
                     header('Content-Type: audio/mp3');
+                    header('Content-Disposition: inline; filename="' . str_replace(array("\"", "\\"), array("\\\"", "\\\\"), basename($result_row['path_str'])) . '"');
                     echo $target_data;
                 }
             }
