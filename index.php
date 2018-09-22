@@ -8,7 +8,7 @@
  * 2a check db for last scan
  * 2b if last db check >= 1hour, then do filesystem/music dir scan
  * 3a load last played playlist (but do not play yet)
- * 3b load list of all playlists
+ * (3b load list of all playlists)
  * 4 present HTML5-Audio-Player
  *
  * TODO: handle each and every mysql query: log mysql errors to a file
@@ -870,6 +870,29 @@ if(isset($_GET['ajax']))
         if(!(FALSE === $result_matches))
         {
             $count_matches = $result_matches->num_rows;
+            $tag_arr = array();
+            $select_sql .= 'SELECT `relation_tags`.`fid` AS \'id\', GROUP_CONCAT(`tagname` SEPARATOR \',\') AS \'tags\' FROM `tags` INNER JOIN `relation_tags` ON `relation_tags`.`tid`=`tags`.`id` WHERE ';
+            $i = 0;
+            while($cur_row = $result_matches->fetch_assoc())
+            {
+                if('file' == $cur_row['type'])
+                {
+                    $tag_arr[$cur_row['id']] = "";
+                    if(0 < $i)  $select_sql .= ' OR ';
+                    $select_sql .= '`relation_tags`.`fid`=' . $cur_row['id'];
+                    $i++;
+                }
+            }
+            if(0 < $i)
+            {
+                $select_sql .= ' GROUP BY `relation_tags`.`fid`';
+                $result_tags = $dbcon->query($select_sql);
+                while($cur_row = $result_tags->fetch_assoc())
+                {
+                    $tag_arr[$cur_row['id']] = $cur_row['tags'];
+                }
+            }
+            $result_matches->data_seek(0);
             echo "{\n\"success\": true,\n\"countMatches\":";
             echo $count_matches . ",\n\"pageLimit\": 10";
             echo ",\n\"offsetMatches\": 0,\n\"matches\": [\n";
@@ -879,7 +902,13 @@ if(isset($_GET['ajax']))
                 if(0 < $i) echo ",\n";
                 echo "{ \"id\": " . $cur_row['id'] . ", \"type\": \"" . $cur_row['type'];
                 echo "\",\"countPlayed\": " . $cur_row['count_played'];
-                echo ",\"name\": \"" . js_escape($cur_row['name']) . "\"}";
+                echo ",\"name\": \"" . js_escape($cur_row['name']) . "\"";
+                echo ",\"tags\": \"";
+                if('file' == $cur_row['type'] && isset($tag_arr[$cur_row['id']]))
+                {
+                    echo js_escape($tag_arr[$cur_row['id']]);
+                }
+                echo "\"}";
                 //TODO: look up tags for type==file
             }
             echo "]\n}";
@@ -916,28 +945,6 @@ if($need_scan_music_dir)
     scan_music_dir($CONFIG_VAR['MUSIC_DIR_ROOT'], $dbcon);
 }
 
-//step 3b, load all playlists
-$playlists_result = @$dbcon->query('SELECT `playlists`.`id` AS \'pid\', `playlists`.`name` AS \'pname\', `playlists`.`thumb_path` AS \'img_path\',`filecache`.`path_str`AS \'file_path\' FROM `playlists` INNER JOIN `relation_playlists` ON `playlists`.`id`=`relation_playlists`.`pid` INNER JOIN `filecache` ON `relation_playlists`.`fid`=`filecache`.`id` WHERE `filecache`.`valid`=\'Y\' ORDER BY `playlists`.`name` ASC, `relation_playlists`.`prank` ASC');
-if(!(FALSE === $playlists_result) && 0 < $playlists_result->num_rows)
-{
-    $loaded_playlists = array();
-    $prev_pid = -1;
-    $i = -1;
-    while($cur_row = $playlists_result->fetch_assoc())
-    {
-        $cur_pid = (int) $cur_row['pid'];
-        if($prev_pid != $cur_pid)
-        {
-            $i++;
-            $loaded_playlists[] = array();
-            $loaded_playlists[$i][] = $cur_row['pname'];
-            $loaded_playlists[$i][] = $cur_row['img_path'];
-            $loaded_playlists[$i][] = array();
-            $prev_pid = $cur_pid;
-        }
-        $loaded_playlists[$i][2][] = $cur_row['file_path'];
-    }
-}
 
 //step 4, present audio player
 ?>
