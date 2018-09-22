@@ -866,7 +866,27 @@ if(isset($_GET['ajax']))
         echo "{ \"success\": true }";
     } else if(isset($_GET['popular']))
     {
-        server_error("Not yet implemented.", true);
+        $result_matches = @$dbcon->query('(SELECT `id`,`path_str` AS \'name\', \'file\' AS \'type\',`count_played` AS \'count_played\' FROM `filecache` WHERE `valid`=\'Y\' ORDER BY `count_played` DESC LIMIT 5) UNION (SELECT `id`, `name`, \'playlist\' AS \'type\', `count_played` AS \'count_played\' FROM `playlists` ORDER BY `count_played` DESC LIMIT 5) ORDER BY `type` DESC, `count_played` DESC LIMIT 10');
+        if(!(FALSE === $result_matches))
+        {
+            $count_matches = $result_matches->num_rows;
+            echo "{\n\"success\": true,\n\"countMatches\":";
+            echo $count_matches . ",\n\"pageLimit\": 10";
+            echo ",\n\"offsetMatches\": 0,\n\"matches\": [\n";
+            $i = 0;
+            for($i = 0; $cur_row = $result_matches->fetch_assoc(); $i++)
+            {
+                if(0 < $i) echo ",\n";
+                echo "{ \"id\": " . $cur_row['id'] . ", \"type\": \"" . $cur_row['type'];
+                echo "\",\"countPlayed\": " . $cur_row['count_played'];
+                echo ",\"name\": \"" . js_escape($cur_row['name']) . "\"}";
+                //TODO: look up tags for type==file
+            }
+            echo "]\n}";
+        } else
+        {
+            server_error('could not look up popular tracks', true);
+        }
     }
 
     do_premature_disconnect();
@@ -969,6 +989,7 @@ function init()
 
   //initialize Playlist with previous session's playlist
   playlistObj.fetchSessionPlaylist();
+  fetchPopular();
 }
 
 function showConfiguration()
@@ -1744,6 +1765,17 @@ function search_keyup(eventObj)
     ajax_matching_tracks(searchSubject,0);
   }
 }
+function fetchPopular()
+{
+  var req = new XMLHttpRequest();
+  req.open("GET", "?ajax&popular");
+  req.addEventListener("load", function(param) {
+    console.log("Request took " + (((new Date()).getTime() - param.target.requestSendedTime)/1000) + " seconds");
+    process_matching_tracks(param.target.responseText, param.target.requestSendedTime);
+   });
+  req.requestSendedTime = (new Date()).getTime();
+  req.send();
+}
 function ajax_matching_tracks(searchSubject, offset)
 {
   var ajax = new XMLHttpRequest();
@@ -1889,6 +1921,7 @@ function process_matching_tracks(responseText, requestSendedTime)
   {
     console.log(exc);
     searchListWrapper.appendChild(document.createTextNode("JS-Error: Could not parse server response as JSON."));
+    console.log(responseText);
     return;
   }
   if(responseJSON)
@@ -1963,7 +1996,12 @@ function removeChilds(parentNode)
 function basename(filepath)
 {
   var matchEnd = filepath.match(/[^/]+$/);
-  return matchEnd[0];
+  if(matchEnd && matchEnd.length)
+  {
+    return matchEnd[0];
+  } else {
+    return filepath;
+  }
 }
 function beautifySongName(filename)
 {
