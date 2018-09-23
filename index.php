@@ -2318,6 +2318,23 @@ body {
 .configuration_session_id {
   word-spacing: 1em;
 }
+.bugreport_wrapper {
+  position: absolute;
+  right: -37px;
+  bottom: 46px;
+  word-wrap: nowrap;
+  /*width: 35px;*/
+  overflow: visible;
+  border: 1px solid #b0b0b0;
+  padding: 2px;
+  background-image: linear-gradient(to bottom, #f0f0f0 0%, #e0e0e0 100%);
+  transform: rotate(-90deg);
+}
+.bugreport_link:link, .bugreport_link:visited {
+  text-decoration: none;
+  color: #606060;
+  font-size: 16pt;
+}
 </style>
 </head>
 <body>
@@ -2340,6 +2357,9 @@ body {
 </div>
 <div class="options_wrapper">
 <img id="img_gear" src="gear.png" width="50" height="51" />
+</div>
+<div class="bugreport_wrapper">
+<a class="bugreport_link" href="http://resonanzkaska.de/bugreport/">Bugreport</a>
 </div>
 </body>
 </html>
