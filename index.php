@@ -668,7 +668,6 @@ if(isset($_GET['ajax']))
                 $result_path = $CONFIG_VAR['MUSIC_DIR_ROOT'] . '/' . $result_row['path_str'];
                 if('Y' == $result_row['valid'] && file_exists($result_path))
                 {
-                    @$dbcon->query('UPDATE `filecache` SET `count_played`=`count_played`+1 WHERE `filecache`.`id`=' . $target_id);
                     header('Content-Type: audio/mp3');
                     header('Content-Disposition: inline; filename="' . str_replace(array("\"", "\\"), array("\\\"", "\\\\"), basename($result_row['path_str'])) . '"');
                     header('Accept-Ranges: bytes');
@@ -716,6 +715,10 @@ if(isset($_GET['ajax']))
                         //  use file_get_contents() as it has much better performance
                         //  than the code above." - documentation from fread()
                         echo  file_get_contents($result_path);
+                    }
+                    if(0 == $file_start)
+                    {
+                        @$dbcon->query('UPDATE `filecache` SET `count_played`=`count_played`+1 WHERE `filecache`.`id`=' . $target_id);
                     }
                 } else
                 {
