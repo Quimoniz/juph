@@ -1202,11 +1202,16 @@ function PlaylistClass()
     this.listHtml = document.createElement("div");
     this.listHtml.setAttribute("class", "playlist_list");
     this.listHtml = this.boundHtml.appendChild(this.listHtml);
+    this.populateOptions();
+  }
+  this.populateOptions = function()
+  {
     this.optionsHtml = document.createElement("div");
     this.optionsHtml.setAttribute("class", "playlist_option_wrapper");
     //add icons
     var optionEle,imgEle;
     var optionsImgs = new Array("loopone.png", "loopall.png", "random.png", "save.png", "delete.png");
+    var optionsTitles = new Array("Loop currently played Song", "Loop whole list", "Play playlist in a random order", "Save as permanently stored playlist", "Discard all entries");
     for(var i = 0; i < optionsImgs.length; ++i)
     {
       optionEle = document.createElement("div");
@@ -1214,6 +1219,7 @@ function PlaylistClass()
       optionEle.setAttribute("class", "playlist_option_div");
       imgEle.setAttribute("class", "playlist_option_img");
       imgEle.setAttribute("src", optionsImgs[i]);
+      optionEle.setAttribute("title", optionsTitles[i]);
       optionEle.appendChild(imgEle);
       this.optionsHtml.appendChild(optionEle);
     }
@@ -1222,7 +1228,7 @@ function PlaylistClass()
     this.optionsHtml.childNodes[1].addEventListener("click", function() { playlistObj.loopClicked("all"); } );
     this.optionsHtml.childNodes[2].addEventListener("click", playlistObj.randomClicked);
     this.optionsHtml.childNodes[3].addEventListener("click", playlistObj.save);
-    this.optionsHtml.childNodes[4].addEventListener("click", playlistObj.clearPlaylist);
+    this.optionsHtml.childNodes[4].addEventListener("click", function () { if(confirm("Do you really want to discard the whole list?")) { playlistObj.clearPlaylist(); } });
   }
   this.fetchSessionPlaylist = function()
   {
@@ -1324,7 +1330,8 @@ function PlaylistClass()
     {
       trackEle.setAttribute("class", "playlist_element");
     }
-    trackEle.appendChild(document.createTextNode(beautifySongName(basename(trackObj.name))));
+    trackEle.appendChild(document.createTextNode(trackObj.beautifiedName));
+    trackEle.setAttribute("title", "Jump to: " + trackObj.beautifiedName);
     trackEle = trackLink.appendChild(trackEle);
     if(position == (this.htmlTrackCount + 1))
     {
@@ -1440,6 +1447,20 @@ function PlaylistClass()
       this.listHtml.childNodes[this.offset].firstChild.setAttribute("class", "playlist_element playlist_selected_element");
     }
     playlistObj.play();
+  }
+  this.togglePlayPause = function()
+  {
+    if(audioPlayer.paused)
+    {
+      playlistObj.play(true);
+    } else
+    {
+      playlistObj.pause();
+    }
+  }
+  this.pause = function()
+  {
+    audioPlayer.pause();
   }
   this.play = function(doContinuePlaying)
   {
@@ -1783,6 +1804,9 @@ function search_keyup(eventObj)
   if(2 < searchSubject.length)
   {
     ajax_matching_tracks(searchSubject,0);
+  } else if(eventObj && "Enter" == eventObj.code)
+  {
+    removeChilds(searchListWrapper);
   }
 }
 function fetchPopular()
@@ -1899,6 +1923,7 @@ function Tracklist(tracklistJSON, requestSendedTime)
     {
       var linkEle = document.createElement("a");
       linkEle.setAttribute("href", "javascript:searchTrackLeftclicked(" + this.tracks[i].id + ", \"" + this.tracks[i].type + "\", \"" + this.tracks[i].name + "\")");
+      linkEle.setAttribute("title", "Enqueue: " + this.tracks[i].beautifiedName);
       linkEle.addEventListener("contextmenu", function (listEle, trackId, trackType, trackName) { return function (evt) { evt.preventDefault(); searchTrackRightclicked(evt, listEle, trackId, trackType, trackName); }; }(linkEle, this.tracks[i].id, this.tracks[i].type, this.tracks[i].name));
       linkEle.setAttribute("class", "search_list_link");
       var divEle = document.createElement("div");
@@ -2054,7 +2079,26 @@ function beautifySongName(filename)
   beautified = beautified.replace(/^[-~.] */, "");
   return beautified;
 }
+function handle_global_keydown(evt)
+{
+  //check if this event is targeted at some input element
+  if(evt && evt.path && 0 < evt.path.length && "INPUT" == evt.path[0].tagName)
+  {
+    return;
+  } else
+  {
+    if(evt.keyCode)
+    {
+      if(32 == evt.keyCode)
+      {
+        playlistObj.togglePlayPause();
+        evt.preventDefault()
+      }
+    }
+  }
+}
 document.addEventListener("DOMContentLoaded", init);
+document.addEventListener("keypress", handle_global_keydown);
 </script>
 <style type="text/css">
 body {
