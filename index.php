@@ -2362,7 +2362,7 @@ body {
 <img id="img_gear" src="gear.png" width="50" height="51" />
 </div>
 <div class="bugreport_wrapper">
-<a class="bugreport_link" href="http://resonanzkaska.de/bugreport/">Bugreport</a>
+<a class="bugreport_link" target="_blank" href="http://resonanzkaska.de/bugreport/">Bugreport</a>
 </div>
 </body>
 </html>
