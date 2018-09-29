@@ -1862,7 +1862,15 @@ function Tracklist(tracklistJSON, requestSendedTime)
           fillerEle.setAttribute("class", "paging_filler");
           if(0 < i && 1 < Math.abs(showPages[i] - showPages[i - 1]))
           {
-            fillerEle.appendChild(document.createTextNode(" ... "));
+            var fillerLink = advancedCreateElement("a", fillerEle, undefined, undefined, "...");
+            fillerLink.addEventListener("click", function(max, cur, pageLimit) { return function(evt) {
+              var desiredPage = parseInt(prompt("Which page is to be loaded? (maximum " + max + ")", cur + 1));
+              if(0 < desiredPage && desiredPage <= max)
+              {
+                ajax_matching_tracks(searchField.value, (desiredPage - 1) * pageLimit);
+              }
+              };}(maxPages, curPage, this.pageLimit));
+            fillerEle.appendChild(fillerLink);
           } else
           {
             fillerEle.appendChild(document.createTextNode("  "));
@@ -1872,6 +1880,7 @@ function Tracklist(tracklistJSON, requestSendedTime)
           var className = "paging_button";
           if(0 == i) className += " paging_button_first";
           if((showPages.length - 1) == i) className += " paging_button_last";
+          if(showPages[i] == curPage) className += " paging_button_current";
           curPageNumEle.setAttribute("class", className);
           if(showPages[i] != curPage)
           {
@@ -2112,31 +2121,43 @@ body {
 }
 .paging_wrapper {
   font-family: Sans, Sans-Serif, Arial;
-  margin: 0.3em 0em 0.3em 0em;
+  /*margin: 0.3em 0em 0.3em 0em;*/
 }
 .paging_filler {
   display: block;
   float: left;
-  min-width: 1.5em;
+  margin: 0.5em 0em 0em 0em;
   text-align: center;
 }
 .paging_button {
   display: block;
   float: left;
   min-width: 1.5em;
-  background-color: #ffffff;
+  background-color: #fbfbfb;
   /*margin: 0em 0.2em 0em 0.2em;*/
   padding: 0.2em;
   text-align: center;
-  color: #000000;
-  font-weight: bold;
+  color: #303030;
+  font-weight: normal;
   font-size: 14pt;
+  margin: 0.2em 0em 0.2em 0em;
   border-left:  3px solid #f0f0f0;
   border-right: 3px solid #f0f0f0;
 }
 .paging_button:hover
 {
   transform: scale(1.2);
+}
+.paging_button_current:hover
+{
+  transform: none;
+}
+.paging_button_current {
+  background-color: #ffffff;
+  color: #000000;
+  font-weight: bold;
+  margin: 0em;
+  padding: 0.4em 0.2em 0.4em 0.2em;
 }
 .paging_button_first {
   display: block;
@@ -2154,7 +2175,6 @@ body {
 .paging_button:link, .paging_button:visited {
   text-decoration: none;
   color: #606060;
-  font-weight: normal;
 }
 .paging_trailing {
   display: block;
