@@ -172,6 +172,7 @@ function tagify_filecache($dbcon)
 }
 function scan_music_dir($MUSIC_DIR_ROOT, $dbcon)
 {
+    global $cur_time;
     $scan_complete = False;
     $scan_filecount = 0;
     $scan_errormessage='';
