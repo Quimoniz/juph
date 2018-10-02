@@ -446,11 +446,11 @@ if($dbcon->connect_errno)
 } 
 
 //maybe TODO for later: bother with incomplete scans (e.g. `completed`='N')
-$result = @$dbcon->query('SELECT `time` FROM `scans` ORDER BY `time` DESC LIMIT 1');
+$result_scan_check = @$dbcon->query('SELECT `time`,`completed` FROM `scans` WHERE `completed`=\'Y\' ORDER BY `time` DESC LIMIT 1');
 $need_scan = true;
 $need_create_table = false;
 //step 1a, check for db
-if(FALSE === $result)
+if(FALSE === $result_scan_check)
 {
     if(1146 == $dbcon->errno)
     {
@@ -885,7 +885,7 @@ if(isset($_GET['ajax']))
         {
             $count_matches = $result_matches->num_rows;
             $tag_arr = array();
-            $select_sql .= 'SELECT `relation_tags`.`fid` AS \'id\', GROUP_CONCAT(`tagname` SEPARATOR \',\') AS \'tags\' FROM `tags` INNER JOIN `relation_tags` ON `relation_tags`.`tid`=`tags`.`id` WHERE ';
+            $select_sql = 'SELECT `relation_tags`.`fid` AS \'id\', GROUP_CONCAT(`tagname` SEPARATOR \',\') AS \'tags\' FROM `tags` INNER JOIN `relation_tags` ON `relation_tags`.`tid`=`tags`.`id` WHERE ';
             $i = 0;
             while($cur_row = $result_matches->fetch_assoc())
             {
@@ -923,7 +923,6 @@ if(isset($_GET['ajax']))
                     echo js_escape($tag_arr[$cur_row['id']]);
                 }
                 echo "\"}";
-                //TODO: look up tags for type==file
             }
             echo "]\n}";
         } else
@@ -939,11 +938,10 @@ if(isset($_GET['ajax']))
 
 //step 2a, lookup scans
 //TODO: why do we do this lookup twice? - reduce this to just one query
-$result = @$dbcon->query('SELECT `time`,`completed` FROM `scans` WHERE `completed`=\'Y\' ORDER BY `time` DESC LIMIT 1');
 $need_scan_music_dir = True;
-if(!(FALSE === $result) && 0 < $result->num_rows)
+if(!(FALSE === $result_scan_check) && 0 < $result_scan_check->num_rows)
 {
-    $last_scan_row = $result->fetch_assoc();
+    $last_scan_row = $result_scan_check->fetch_assoc();
     $last_scan_time = (int) $last_scan_row['time'];
     $last_scan_completed = $last_scan_row['completed'];
     if($last_scan_time >= ($cur_time - 86400 * 7) && 'Y' == $last_scan_completed)
