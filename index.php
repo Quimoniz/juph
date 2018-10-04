@@ -1183,6 +1183,7 @@ function PlaylistClass()
   this.randomOffset = 0;
   this.playlistName = undefined;
   this.lastChangeTime = 0;
+  this.savingTimeout = false;
   this.assumePlaylist = function()
   {
     if(playlistEle)
@@ -1266,7 +1267,15 @@ function PlaylistClass()
   {
     var curTime = (new Date()).getTime();
     this.lastChangeTime = (new Date()).getTime();
-    setTimeout(function(paramLastChangeTime) { return function() { playlistObj.doCommitIfNoRecentChange(paramLastChangeTime); }; }(curTime), 2000);
+    if(false != this.savingTimeout)
+    {
+      clearTimeout(this.savingTimeout);
+      this.savingTimeout = false;
+    }
+    if(false == this.savingTimeout)
+    {
+      this.savingTimeout = setTimeout(function(paramLastChangeTime) { return function() { playlistObj.doCommitIfNoRecentChange(paramLastChangeTime); }; }(curTime), 2000);
+    }
   }
   this.enqueueLast = function(trackId, trackType, trackName)
   {
