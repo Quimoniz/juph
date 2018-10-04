@@ -1287,10 +1287,18 @@ function PlaylistClass()
   }
   this.enqueueNext = function(trackId, trackType, trackName)
   {
+    playlistObj.enqueueAt(trackId, trackType, trackName, -1);
+  }
+  this.enqueueAt = function(trackId, trackType, trackName, posAt)
+  {
     if("file" == trackType)
     {
       var newTrack = new TrackClass(trackId, trackType, trackName);
-      var newPos = this.offset + 1;
+      var newPos = posAt;
+      if(-1 == newPos )
+      {
+        newPos = this.offset + 1;
+      }
       if(this.tracks.length > newPos)
       {
         this.tracks.splice(newPos, 0, newTrack);
@@ -1308,7 +1316,12 @@ function PlaylistClass()
             this.randomArr[i] = this.randomArr[i] + 1;
           }
         }
-        this.randomArr.splice(this.randomOffset + 1, 0, newPos);
+        if(-1 == posAt)
+        {
+          this.randomArr.splice(this.randomOffset + 1, 0, newPos);
+        } else {
+          this.randomArr.splice(this.randomOffset + 1 + Math.floor(Math.random() * (this.randomArr.length - this.randomOffset - 2)), 0, newPos);
+        }
       }
     } else if("playlist" == trackType)
     {
@@ -1360,6 +1373,8 @@ function PlaylistClass()
       return function() { playlistObj.playOffset(position);}; }(position)],
       ["Enqueue Next", function(position) {
       return function() { var swapTrack = playlistObj.tracks[position]; playlistObj.removeTrack(position); playlistObj.enqueueNext(swapTrack.id, swapTrack.type, swapTrack.name); }; }(position)],
+      ["Duplicate", function(position) {
+      return function() { var duplicateTrack = playlistObj.tracks[position]; playlistObj.enqueueAt(duplicateTrack.id, duplicateTrack.type, duplicateTrack.name, position + 1); }; }(position) ],
       ["Remove", function(position) {
       return function() { playlistObj.removeTrack(position); };}(position)]
     ]);
@@ -1985,29 +2000,67 @@ function process_matching_tracks(responseText, requestSendedTime)
 }
 function searchTrackRightclicked(evt, listEle, trackId, trackType, trackName)
 {
-  new ContextMenuClass(evt.pageX, evt.pageY, evt.target, [["Enqueue", function(trackId,trackName){ return function(evt) {
-      playlistObj.enqueueLast(trackId, trackType, trackName);
-      if(1 == playlistObj.length())
-      {
-        playlistObj.play();
-      }
-    }; }(trackId, trackName)],[ "Enqueue Next", function(trackId,trackName){ return function(evt) {
-      playlistObj.enqueueNext(trackId, trackType, trackName);
-      if(1 == playlistObj.length())
-      {
-        playlistObj.play();
-      }
-    }; }(trackId, trackName)],["Play", function(trackId,trackName){ return function(evt) {
-      playlistObj.clearPlaylist();
-      playlistObj.enqueueLast(trackId, trackType, trackName);
-      playlistObj.play();
-    }; }(trackId, trackName)]]);
+  if("file" == trackType)
+  {
+    new ContextMenuClass(evt.pageX, evt.pageY, evt.target, [
+        ["Enqueue", function(trackId,trackName){ return function(evt) {
+          playlistObj.enqueueLast(trackId, trackType, trackName);
+          if(1 == playlistObj.length())
+          {
+            playlistObj.play();
+          }
+        }; }(trackId, trackName)],
+        [ "Enqueue Next", function(trackId,trackName){ return function(evt) {
+          playlistObj.enqueueNext(trackId, trackType, trackName);
+          if(1 == playlistObj.length())
+          {
+            playlistObj.play();
+          }
+        }; }(trackId, trackName)],
+          ["Play", function(trackId,trackName){ return function(evt) {
+          playlistObj.clearPlaylist();
+          playlistObj.enqueueLast(trackId, trackType, trackName);
+          playlistObj.play();
+        }; }(trackId, trackName)]
+      ]);
+  } else if("playlist" == trackType)
+  {
+    new ContextMenuClass(evt.pageX, evt.pageY, evt.target, [
+          ["Play", function(trackId,trackName){ return function(evt) {
+          playlistObj.clearPlaylist();
+          playlistObj.enqueueLast(trackId, trackType, trackName);
+          playlistObj.play();
+        }; }(trackId, trackName)],
+        ["Enqueue", function(trackId,trackName){ return function(evt) {
+          playlistObj.enqueueLast(trackId, trackType, trackName);
+          if(1 == playlistObj.length())
+          {
+            playlistObj.play();
+          }
+        }; }(trackId, trackName)],
+        [ "Enqueue Next", function(trackId,trackName){ return function(evt) {
+          playlistObj.enqueueNext(trackId, trackType, trackName);
+          if(1 == playlistObj.length())
+          {
+            playlistObj.play();
+          }
+        }; }(trackId, trackName)]
+      ]);
+  }
 }
 function searchTrackLeftclicked(trackId, trackType, trackName)
 {
-  playlistObj.enqueueLast(trackId, trackType, trackName);
-  if(1 == playlistObj.length())
+  if("file" == trackType)
   {
+    playlistObj.enqueueLast(trackId, trackType, trackName);
+    if(1 == playlistObj.length())
+    {
+      playlistObj.play();
+    }
+  } else if("playlist" == trackType)
+  {
+    playlistObj.clearPlaylist();
+    playlistObj.enqueueLast(trackId, trackType, trackName);
     playlistObj.play();
   }
 }
