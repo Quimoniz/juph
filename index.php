@@ -2429,6 +2429,12 @@ body {
 #img_gear:hover {
   animation: turn_gear 3.5s linear infinite;
 }
+#img_menu {
+  margin: 5px 10px 0px 0px;
+}
+#img_menu:hover {
+  background-image: url(menu-hover.gif);
+}
 @keyframes turn_gear {
   0%   { transform: rotate(0); }
   20%  { transform: rotate(60deg); }
@@ -2484,7 +2490,8 @@ body {
 </div>
 </div>
 <div class="options_wrapper">
-<img id="img_gear" src="gear.png" width="50" height="51" />
+<img id="img_gear" src="gear.png" width="50" height="51" /><br/>
+<img id="img_menu" src="menu-inactive.png" width="50" height="50" />
 </div>
 <div class="bugreport_wrapper">
 <a class="bugreport_link" target="_blank" href="http://resonanzkaska.de/bugreport/">Bugreport</a>
