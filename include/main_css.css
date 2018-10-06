@@ -1,0 +1,307 @@
+body {
+  font-family: Verdana, Sans, Sans-Serif;
+}
+.content_wrapper {
+  margin: 0px auto 0px auto;
+  width: 90%;
+}
+.left_wrapper {
+  float: left;
+  width: 45%;
+}
+.right_wrapper {
+  float: right;
+  width: 45%;
+  background-color: #f0f0f0;
+  border-radius: 20px;
+  padding: 1em;
+}
+.search_input {
+  width: 100%;
+  font-size: 20pt;
+  letter-spacing: 1px;
+  margin: 0.3em 0em 0em 0em;
+  background-image: url(img/looking-glass.png);
+  background-repeat: no-repeat;
+  background-position: calc(100% - 10px) 0px;
+  border-width: 4px;
+  border-radius: 5px;
+}
+.search_list_wrapper {
+}
+.search_list_element {
+  border-bottom: 2px solid #e0e0e0;
+  margin: 0.4em 0em 0.4em 0em;
+  padding: 0em 0em 0.2em 0.3em;
+  overflow: hidden;
+}
+.search_list_tag {
+  font-size: 10pt;
+  background-color: #dbdbdb;
+  color: #404040;
+  float: right;
+  margin-left: 6px;
+  padding: 1px 3px 1px 3px;
+  border-radius: 5px;
+}
+.search_list_tag:hover {
+  background-color: #000000;
+  color: #ffffff;
+}
+.search_list_count_played {
+  font-size: 10pt;
+  clear: both;
+  color: #606060;
+}
+.search_label {
+  font-size: 14pt;
+}
+.search_list_link:link, .search_list_link:visited {
+  color: #000000;
+  text-decoration: none;
+}
+.paging_wrapper {
+  font-family: Sans, Sans-Serif, Arial;
+  /*margin: 0.3em 0em 0.3em 0em;*/
+}
+.paging_filler {
+  display: block;
+  float: left;
+  margin: 0.5em 0em 0em 0em;
+  text-align: center;
+}
+.paging_button {
+  display: block;
+  float: left;
+  min-width: 1.5em;
+  background-color: #fbfbfb;
+  /*margin: 0em 0.2em 0em 0.2em;*/
+  padding: 0.2em;
+  text-align: center;
+  color: #303030;
+  font-weight: normal;
+  font-size: 14pt;
+  margin: 0.2em 0em 0.2em 0em;
+  border-left:  3px solid #f0f0f0;
+  border-right: 3px solid #f0f0f0;
+}
+.paging_button:hover
+{
+  transform: scale(1.2);
+}
+.paging_button_current:hover
+{
+  transform: none;
+}
+.paging_button_current {
+  background-color: #ffffff;
+  color: #000000;
+  font-weight: bold;
+  margin: 0em;
+  padding: 0.4em 0.2em 0.4em 0.2em;
+}
+.paging_button_first {
+  display: block;
+  margin-left: 0em;
+  border-left: none;
+  border-top-left-radius: 9px;
+  border-bottom-left-radius: 9px;
+}
+.paging_button_last {
+  display: block;
+  border-right: none;
+  border-top-right-radius: 9px;
+  border-bottom-right-radius: 9px;
+}
+.paging_button:link, .paging_button:visited {
+  text-decoration: none;
+  color: #606060;
+}
+.paging_trailing {
+  display: block;
+  clear: both;
+  width: 0px;
+  height: 0px;
+  margin: 0px;
+}
+#audio_caption {
+  font-size: 20pt;
+  font-weight: bold;
+  min-height: 20px;
+  margin: 0.1em 0em 0.3em 0em;
+}
+#audio_player {
+  width: 100%;
+}
+.playlist {
+  background-color: #000000;
+  color: #ffffff;
+}
+.playlist_title {
+  font-size: 16pt;
+  padding: 2px 0px 3px 10px;
+  background-color: #f0f0f0;
+  color: #404040;
+  font-weight: bold;
+  border-bottom: 3px solid #808080;
+  background-image: radial-gradient(circle at 20%, #ffffff 0%, #c8c8c8 100%);
+  box-shadow: inset 0px -5px 10px 3px #c0c0c0;
+}
+.playlist_list {
+  max-height: 250px;
+  overflow: auto;
+}
+.playlist_link:link, .playlist_link:visited {
+  color: #000000;
+  text-decoration: none;
+}
+.playlist_element {
+  border-bottom: 2px solid #a0a0a0;
+  background-color: #c0c0c0;
+  color: #202020;
+  overflow: hidden;
+  padding: 0.15em 0em 0.45em 0.1em;
+  box-shadow: inset 0px -3px 3px 2px #808080;
+}
+.playlist_selected_element {
+  color: #000000;
+  background-color: #ffffff;
+  box-shadow: none;
+  background-image: linear-gradient(to bottom, #ffffff 0%, #e8e8e8 80%, #a0a0a0 100%);
+}
+.playlist_selected_element::before {
+  content: "▶ ";
+}
+.playlist_option_wrapper {
+  background-color: #808080;
+  width: 100%;
+  height: 42px;
+}
+.playlist_option_div {
+  float: left;
+  width: calc(100% / 6);
+  height: 34px;
+  padding: 4px;
+  background-color: #808080;
+  text-align: center;
+  background-image: radial-gradient(ellipse at center, #000000 0%, #080808 20%, #303030 40%, #707070 80%, #b0b0b0 100%);
+/*
+  border-top: 2px solid #e8e8e8;
+  border-left: 2px solid #e8e8e8;
+  border-bottom: 2px solid #909090;
+  border-right: 2px solid #909090;
+*/
+}
+.playlist_option_div:nth-child(1)
+{
+  margin-left: 2px;
+}
+.playlist_option_div:nth-last-child(1)
+{
+  margin-right: 0px;
+}
+.playlist_option_div:hover
+{
+  background-color: #707070;
+  background-image: radial-gradient(ellipse at center, #b0b0b0 0%, #707070 20%, #303030 40%, #080808 80%, #000000 100%);
+}
+.playlist_option_div_selected {
+  border: 4px solid #ffffff;
+  padding: 0px;
+}
+.playlist_option_img {
+}
+.contextmenu_wrapper {
+  font-family: Sans, Sans-Serif, Arial;
+  width: 8em;
+  border: 3px solid #808080;
+  border-radius: 10px;
+  background-color: #ffffff;
+  overflow: hidden;
+  border-top-right-radius: 0px;
+}
+.contextmenu_close {
+  float: right;
+  width: 22px;
+  height: 27px;
+  background-color: #d0d0d0;
+  cursor: pointer;
+  font-size: 21px;
+  padding: 0px 0px 0px 5px;
+  border: 2px solid #808080;
+  border-right: none;
+  border-top: none;
+}
+.contextmenu_close:hover {
+  transform: scale(1.2);
+}
+.contextmenu_item {
+  background-color: #f0f0f0;
+  padding: 0.3em;
+  margin: 0em 0em 0.2em 0em;
+  border-radius: 10px;
+  cursor: pointer;
+}
+.contextmenu_item:hover {
+  background-color: #505050;
+  color: #f0f0f0;
+}
+.overlay_veil {
+  position: fixed;
+  left: 0px;
+  top: 0px;
+  width: 100%;
+  height: 100%;
+  background-color: rgba(64,64,64,0.2);
+}
+.options_wrapper {
+  position: absolute;
+  right: 0px;
+  top: 0px;
+}
+#img_gear {
+  margin: 10px 10px 0px 0px;
+}
+#img_gear:hover {
+  animation: turn_gear 3.5s linear infinite;
+}
+#img_menu {
+  margin: 5px 10px 0px 0px;
+}
+#img_menu:hover {
+  background-image: url(img/menu-hover.gif);
+}
+@keyframes turn_gear {
+  0%   { transform: rotate(0); }
+  20%  { transform: rotate(60deg); }
+  40%  { transform: rotate(120deg); }
+  60%  { transform: rotate(180deg); }
+  80%  { transform: rotate(240deg); }
+  100% { transform: rotate(300deg); }
+}
+.configuration_title {
+  font-size: 20pt;
+}
+.configuration_button {
+  
+}
+.configuration_session_id {
+  word-spacing: 1em;
+}
+.bugreport_wrapper {
+  position: absolute;
+  right: -37px;
+  bottom: 46px;
+  word-wrap: nowrap;
+  /*width: 35px;*/
+  overflow: visible;
+  border: 1px solid #b0b0b0;
+  padding: 2px;
+  background-image: linear-gradient(to bottom, #f0f0f0 0%, #e0e0e0 100%);
+  transform: rotate(-90deg);
+}
+.bugreport_link:link, .bugreport_link:visited {
+  text-decoration: none;
+  color: #606060;
+  font-size: 16pt;
+}
