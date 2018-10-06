@@ -43,7 +43,7 @@ if( $do_setup)
         server_error("Ajax unavailable", true);
     } else
     { 
-        include('setup.php');
+        include('include/setup.php');
     }
     exit(0);
 }

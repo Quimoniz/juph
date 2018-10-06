@@ -53,7 +53,7 @@ if(!file_exists($CONFIG_FILE))
     //use rand(int min, int max) to generate random number
     $admin_password = gen_pwd(15, true);
     touch($CONFIG_FILE);
-    chmod($CONFIG_FILE, 0740);
+    chmod($CONFIG_FILE, 0744);
     $CONFIG_VAR = array( "ADMIN_PWD" => $admin_password);
     write_config_file($CONFIG_VAR, $CONFIG_FILE);
     unset($admin_password);
