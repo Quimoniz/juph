@@ -1127,22 +1127,22 @@ function doLogOut()
 var juffImg = {
   imgArr: [
     {
-      src: "logo.png",
+      src: "img/logo.png",
       width: 178,
       height: 200
     },
     {
-      src: "country.png",
+      src: "img/country.png",
       width: 140,
       height:165 
     },
     {
-      src: "rock.png",
+      src: "img/rock.png",
       width: 151,
       height: 200
     },
     {
-      src: "hiphop.png",
+      src: "img/hiphop.png",
       width: 168,
       height: 200
     },
@@ -1226,7 +1226,7 @@ function PlaylistClass()
     this.optionsHtml.setAttribute("class", "playlist_option_wrapper");
     //add icons
     var optionEle,imgEle;
-    var optionsImgs = new Array("loopone.png", "loopall.png", "random.png", "save.png", "delete.png");
+    var optionsImgs = new Array("img/loopone.png", "img/loopall.png", "img/random.png", "img/save.png", "img/delete.png");
     var optionsTitles = new Array("Loop currently played Song", "Loop whole list", "Play playlist in a random order", "Save as permanently stored playlist", "Discard all entries");
     for(var i = 0; i < optionsImgs.length; ++i)
     {
@@ -2201,7 +2201,7 @@ body {
   font-size: 20pt;
   letter-spacing: 1px;
   margin: 0.3em 0em 0em 0em;
-  background-image: url(looking-glass.png);
+  background-image: url(img/looking-glass.png);
   background-repeat: no-repeat;
   background-position: calc(100% - 10px) 0px;
   border-width: 4px;
@@ -2449,7 +2449,7 @@ body {
   margin: 5px 10px 0px 0px;
 }
 #img_menu:hover {
-  background-image: url(menu-hover.gif);
+  background-image: url(img/menu-hover.gif);
 }
 @keyframes turn_gear {
   0%   { transform: rotate(0); }
@@ -2490,7 +2490,7 @@ body {
 <body>
 <div class="content_wrapper">
 <div class="left_wrapper">
-<img id="juff_img" src="logo.png" width="178" height="200" alt="juph logo"/><br/>
+<img id="juff_img" src="img/logo.png" width="178" height="200" alt="juph logo"/><br/>
 <div id="audio_caption">
 </div>
 <audio id="audio_player" controls>
@@ -2506,8 +2506,8 @@ body {
 </div>
 </div>
 <div class="options_wrapper">
-<img id="img_gear" src="gear.png" width="50" height="51" /><br/>
-<img id="img_menu" src="menu-inactive.png" width="50" height="50" />
+<img id="img_gear" src="img/gear.png" width="50" height="51" /><br/>
+<img id="img_menu" src="img/menu-inactive.png" width="50" height="50" />
 </div>
 <div class="bugreport_wrapper">
 <a class="bugreport_link" target="_blank" href="http://resonanzkaska.de/bugreport/">Bugreport</a>
