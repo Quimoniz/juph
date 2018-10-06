@@ -977,7 +977,7 @@ var playlistObj;
 var BODY;
 var contextMenu;
 var sessionId;
-var configurationEle;
+var secondPane;
 var ajax;
 function init()
 {
@@ -1003,6 +1003,7 @@ function init()
                     html.clientHeight, html.scrollHeight, html.offsetHeight);
   }
   document.getElementById("img_gear").addEventListener("click", showConfiguration);
+  document.getElementById("img_menu").addEventListener("click", showMenu);
   sessionId = <?php echo "\"" . js_escape($SESSION_ID) . "\";";  ?>
   juffImg.init();
 
@@ -1010,50 +1011,65 @@ function init()
   playlistObj.fetchSessionPlaylist();
   fetchPopular();
 }
-
-function showConfiguration()
+function setSearchVisibility(setVisible)
 {
   var rightWrapper = document.querySelector(".right_wrapper");
-  if(configurationEle)
+  for(var i = 0; i < rightWrapper.childNodes.length; ++i)
   {
-    configurationEle.parentNode.removeChild(configurationEle);
-    configurationEle = undefined;
-    for(var i = 0; i < rightWrapper.childNodes.length; ++i)
+    if(rightWrapper.childNodes[i].style)
     {
-      if(rightWrapper.childNodes[i].style)
+      if(setVisible)
       {
         rightWrapper.childNodes[i].style.display = "block";
-      }
-    }
-  } else
-  {
-    for(var i = 0; i < rightWrapper.childNodes.length; ++i)
-    {
-      if(rightWrapper.childNodes[i].style)
-      {
+      } else {
         rightWrapper.childNodes[i].style.display = "none";
       }
     }
-    configurationEle = advancedCreateElement("div", rightWrapper, "configuration_wrapper");
-    var titleEle = advancedCreateElement("div", configurationEle, "configuration_title", undefined, "Configuration");
-    var logOutButton = advancedCreateElement("button", configurationEle, "configuration_button", undefined, "Log Out");
+  }
+}
+function showConfiguration()
+{
+  var rightWrapper = document.querySelector(".right_wrapper");
+  if(secondPane)
+  {
+    secondPane.parentNode.removeChild(secondPane);
+    secondPane = undefined;
+    setSearchVisibility(true);
+  } else
+  {
+    setSearchVisibility(false);
+    secondPane = advancedCreateElement("div", rightWrapper, "configuration_wrapper");
+    var titleEle = advancedCreateElement("div", secondPane, "configuration_title", undefined, "Configuration");
+    var logOutButton = advancedCreateElement("button", secondPane, "configuration_button", undefined, "Log Out");
     logOutButton.addEventListener("click", doLogOut);
-    var rescanButton = advancedCreateElement("button", configurationEle, "configuration_button", undefined, "Rescan all files");
+    var rescanButton = advancedCreateElement("button", secondPane, "configuration_button", undefined, "Rescan all files");
     rescanButton.addEventListener("click", function () { if(confirm("Are you sure you want to rescan all files?")) { configurationRescanAllFiles(); } });
-    var sessionIdEle = advancedCreateElement("div", configurationEle, "configuration_session_id", undefined, "Session-Id: " + sessionId);
+    var sessionIdEle = advancedCreateElement("div", secondPane, "configuration_session_id", undefined, "Session-Id: " + sessionId);
     
+  }
+}
+function showMenu()
+{
+  if(secondPane)
+  {
+    secondPane.parentNode.removeChild(secondPane);
+    secondPane = undefined;
+    setSearchVisibilit(true);
+  } else
+  {
+    setSearchVisibility(false);
   }
 }
 function configurationRescanAllFiles()
 {
-  if(configurationEle)
+  if(secondPane)
   {
     for(var arrEles = document.querySelectorAll(".configuration_button"), i = 0; i < arrEles.length; ++i)
     {
       arrEles[i].disabled = true;
     }
-    advancedCreateElement("br", configurationEle);
-    var processEle = advancedCreateElement("div", configurationEle, "configuration_processing", undefined, ".");
+    advancedCreateElement("br", secondPane);
+    var processEle = advancedCreateElement("div", secondPane, "configuration_processing", undefined, ".");
     var req = new XMLHttpRequest();
     req.open("GET", "?ajax&scan_music_dir");
     req.addEventListener("load", function(processEle) {
