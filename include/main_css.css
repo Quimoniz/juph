@@ -259,14 +259,17 @@ body {
   right: 0px;
   top: 0px;
 }
-#img_gear {
+#img_search {
   margin: 10px 10px 0px 0px;
+}
+#img_menu,#img_gear {
+  margin: 5px 10px 0px 0px;
+}
+#img_search:hover {
+  background-image: url(img/looking-glass-big.gif);
 }
 #img_gear:hover {
   animation: turn_gear 3.5s linear infinite;
-}
-#img_menu {
-  margin: 5px 10px 0px 0px;
 }
 #img_menu:hover {
   background-image: url(img/menu-hover.gif);
