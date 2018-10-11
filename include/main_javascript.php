@@ -1,3 +1,4 @@
+/* vim: set syntax=javascript: */
 var searchField;
 var searchListWrapper;
 var audioPlayer;
@@ -152,7 +153,10 @@ function doLogOut()
   for(var i = 0; i < splitCookies.length; ++i)
   {
     var cookieName = splitCookies[i].match(/ *([^=]*)/)[1];
-    document.cookie = cookieName + "=;expires=" + (new Date(0)).toGMTString();
+    if(-1 < cookieName.indexOf("access_pwd"))
+    {
+      document.cookie = cookieName + "=;expires=" + (new Date(0)).toGMTString();
+    }
   }
   location.reload();
 }
@@ -306,7 +310,20 @@ function PlaylistClass()
       }
       var req = new XMLHttpRequest();
       req.open("POST", "?ajax&put_session_playlist=" + sessionId);
-      req.addEventListener("load", function(param) { console.log(param.target.responseText); });
+      req.addEventListener("load", function(param) {
+        try {
+          if(JSON.parse(param.target.responseText).success)
+          {
+            console.log("Saved session playlist");
+          } else
+          {
+            console.log("Could not save session playlist");
+          }
+        } catch(exc)
+        {
+          console.log("Error when saving session playlist");
+        }
+      });
       req.setRequestHeader("Content-type", "application/x-www-form-urlencoded");
       req.send("tracks=" + encodeURIComponent(idString));
     }
@@ -355,6 +372,10 @@ function PlaylistClass()
       if(-1 == newPos )
       {
         newPos = this.offset + 1;
+      }
+      if(newPos <= this.offset)
+      {
+        this.offset += 1;
       }
       if(this.tracks.length > newPos)
       {
@@ -445,6 +466,14 @@ function PlaylistClass()
   {
     this.tracks.splice(position, 1);
     this.listHtml.removeChild(this.listHtml.childNodes[position]);
+    if(position == playlistObj.offset)
+    {
+      removeChilds(audioCaption);
+      audioPlayer.pause();
+      playlistObj.previousId = -1;
+      audioPlayer.preload = "none";
+      audioPlayer.setAttribute("src", "");
+    }
     if(position < playlistObj.offset)
     {
       playlistObj.offset--;
@@ -753,7 +782,20 @@ function PlaylistClass()
       }
       var req = new XMLHttpRequest();
       req.open("POST", "?ajax&put_playlist");
-      req.addEventListener("load", function(param) { console.log(param.target.responseText); });
+      req.addEventListener("load", function(param) {
+        try {
+          if(JSON.parse(param.target.responseText).success)
+          {
+            console.log("Saved playlist");
+          } else
+          {
+            console.log("Could not save playlist");
+          }
+        } catch(exc)
+        {
+          console.log("Error when saving playlist");
+        }
+      });
       req.setRequestHeader("Content-type", "application/x-www-form-urlencoded");
       req.send("playlist_name=" + encodeURIComponent(playlistObj.myName) + "&playlist_tracks=" + encodeURIComponent(idString));
       playlistObj.setPlaylistName(returnVal);
@@ -856,7 +898,10 @@ function ContextMenuClass(posX, posY, parentNode, optionsArr)
   {
     var curEle = document.createElement("div");
     curEle.appendChild(document.createTextNode(optionsArr[i][0]));
-    curEle.addEventListener("click", function(callback) { return function() {callback(); contextMenu.selfDestruct();} }(optionsArr[i][1]), false);
+    if(optionsArr[i][1])
+    {
+      curEle.addEventListener("click", function(callback) { return function() {callback(); contextMenu.selfDestruct();} }(optionsArr[i][1]), false);
+    }
     curEle.setAttribute("class", "contextmenu_item");
     this.menuEle.appendChild(curEle);
   }
@@ -1060,16 +1105,24 @@ function searchTrackRightclicked(evt, listEle, trackId, trackType, trackName)
   if("file" == trackType)
   {
     new ContextMenuClass(evt.pageX, evt.pageY, evt.target, [
-        ["Enqueue", function(trackId,trackName){ return function(evt) {
+        ["Enqueue", undefined],
+        ["⤷ as last", function(trackId,trackName){ return function(evt) {
           playlistObj.enqueueLast(trackId, trackType, trackName);
           if(1 == playlistObj.length())
           {
             playlistObj.play();
           }
         }; }(trackId, trackName)],
-        [ "Enqueue Next", function(trackId,trackName){ return function(evt) {
+        [ "⤷ as next", function(trackId,trackName){ return function(evt) {
           playlistObj.enqueueNext(trackId, trackType, trackName);
           if(1 == playlistObj.length())
+          {
+            playlistObj.play();
+          }
+        }; }(trackId, trackName)],
+        [ "⤷ as first", function(trackId,trackName){ return function(evt) {
+          playlistObj.enqueueAt(trackId, trackType, trackName, 0);
+          if(1 == playlistObj.length(), 0)
           {
             playlistObj.play();
           }
