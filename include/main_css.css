@@ -9,7 +9,7 @@ body {
   float: left;
   width: 45%;
 }
-.right_wrapper {
+.multi_pane_wrapper {
   float: right;
   width: 45%;
   background-color: #f0f0f0;

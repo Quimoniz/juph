@@ -14,9 +14,6 @@ var secondPane;
 var ajax;
 function init()
 {
-  searchField = document.getElementById("search_input");
-  searchField.addEventListener("keyup", search_keyup);
-  searchListWrapper = document.getElementById("search_list_wrapper");
   audioPlayer = document.getElementById("audio_player");
   playlistWrapper = document.getElementById("playlist_wrapper");
   playlistObj = new PlaylistClass();
@@ -35,15 +32,80 @@ function init()
     return Math.max(BODY.scrollHeight, BODY.offsetHeight,
                     html.clientHeight, html.scrollHeight, html.offsetHeight);
   }
-  document.getElementById("img_gear").addEventListener("click", showConfiguration);
-  document.getElementById("img_menu").addEventListener("click", showMenu);
   sessionId = <?php echo "\"" . js_escape($SESSION_ID) . "\";";  ?>
   juffImg.init();
+  MultiPane.init();
+  MultiPane.registerPopulator("Search", SearchPane);
+  MultiPane.registerPopulator("Configuration", ConfigurationPane);
+  MultiPane.registerPopulator("Menu", MenuPane);
 
   //initialize Playlist with previous session's playlist
   playlistObj.fetchSessionPlaylist();
   fetchPopular();
 }
+var MultiPane = {
+  wrapper: undefined,
+  optionsWrapper: undefined,
+  populatorArr: new Array(),
+  populatorNames: new Array(),
+  selectedIndex: -1,
+  curPopulator: undefined,
+  init: function() {
+    MultiPane.wrapper = document.querySelector(".multi_pane_wrapper");
+    MultiPane.optionsWrapper = document.querySelector(".options_wrapper");
+  },
+  clear: function() {
+    if(MultiPane.curPopulator)
+    {
+      if(MultiPane.curPopulator && MultiPane.curPopulator.fini)
+      {
+        MultiPane.curPopulator.fini();
+      }
+      MultiPane.curPopulator = undefined;
+    }
+    removeChilds(MultiPane.wrapper);
+    MultiPane.selectedIndex = -1;
+  },
+  registerPopulator(populatorName, populatorObject) {
+    var curPop = new populatorObject();
+    MultiPane.populatorNames.push(populatorName);
+    MultiPane.populatorArr.push(curPop);
+
+    var newImg = document.createElement("img");
+    newImg.setAttribute("width", curPop.icon.width);
+    newImg.setAttribute("height", curPop.icon.height);
+    newImg.setAttribute("src", curPop.icon.src);
+    if(curPop.icon.idName) newImg.setAttribute("id", curPop.icon.idName);
+    if(curPop.icon.className) newImg.setAttribute("class", curPop.icon.className);
+    if(curPop.icon.title) newImg.setAttribute("title", curPop.icon.title);
+    newImg = MultiPane.optionsWrapper.appendChild(newImg);
+    advancedCreateElement("br", MultiPane.optionsWrapper, undefined, undefined, undefined);
+
+    newImg.addEventListener("click", function(selectedName) { return function() { MultiPane.select(selectedName) }; }(populatorName));
+
+    if(1 == MultiPane.populatorNames.length && -1 == MultiPane.selectedIndex)
+    {
+      setTimeout(function(selectedName) { return function() { MultiPane.select(selectedName); }; }(populatorName),5);
+    }
+  },
+  select: function(selectedName) {
+    var foundIndex = -1;
+    for(var i = 0; i < MultiPane.populatorNames.length; ++i)
+    {
+      if(MultiPane.populatorNames[i] == selectedName)
+      {
+        foundIndex = i;
+        break;
+      }
+    }
+    MultiPane.clear();
+    if(-1 < foundIndex && foundIndex < MultiPane.populatorArr.length)
+    {
+      MultiPane.curPopulator = MultiPane.populatorArr[foundIndex];
+      MultiPane.curPopulator.init(MultiPane.wrapper);
+    }
+  }
+};
 function setSearchVisibility(setVisible)
 {
   var rightWrapper = document.querySelector(".right_wrapper");
@@ -60,39 +122,66 @@ function setSearchVisibility(setVisible)
     }
   }
 }
-function showConfiguration()
+function ConfigurationPane()
 {
-  var rightWrapper = document.querySelector(".right_wrapper");
-  if(secondPane)
-  {
-    secondPane.parentNode.removeChild(secondPane);
-    secondPane = undefined;
-    setSearchVisibility(true);
-  } else
-  {
-    setSearchVisibility(false);
-    secondPane = advancedCreateElement("div", rightWrapper, "configuration_wrapper");
-    var titleEle = advancedCreateElement("div", secondPane, "configuration_title", undefined, "Configuration");
-    var logOutButton = advancedCreateElement("button", secondPane, "configuration_button", undefined, "Log Out");
+  this.icon = {
+    src: "img/gear.png",
+    width: 50,
+    height: 51,
+    idName: "img_gear",
+    className: undefined,
+    title: undefined
+  };
+  this.init = function(parentEle) {
+    myPane = advancedCreateElement("div", parentEle, "configuration_wrapper");
+    var titleEle = advancedCreateElement("div", myPane, "configuration_title", undefined, "Configuration");
+    var logOutButton = advancedCreateElement("button", myPane, "configuration_button", undefined, "Log Out");
     logOutButton.addEventListener("click", doLogOut);
-    var rescanButton = advancedCreateElement("button", secondPane, "configuration_button", undefined, "Rescan all files");
+    var rescanButton = advancedCreateElement("button", myPane, "configuration_button", undefined, "Rescan all files");
     rescanButton.addEventListener("click", function () { if(confirm("Are you sure you want to rescan all files?")) { configurationRescanAllFiles(); } });
-    var sessionIdEle = advancedCreateElement("div", secondPane, "configuration_session_id", undefined, "Session-Id: " + sessionId);
-    
-  }
+    var sessionIdEle = advancedCreateElement("div", myPane, "configuration_session_id", undefined, "Session-Id: " + sessionId);
+  };
 }
-function showMenu()
+function SearchPane()
 {
-  if(secondPane)
-  {
-    secondPane.parentNode.removeChild(secondPane);
-    secondPane = undefined;
-    setSearchVisibilit(true);
-  } else
-  {
-    setSearchVisibility(false);
-  }
+  this.icon = {
+    src: "img/looking-glass-big.png",
+    width: 48,
+    height: 51,
+    idName: "img_search",
+    className: undefined,
+    title: undefined
+  };
+  this.init = function(parentEle) {
+    var labelEle = advancedCreateElement("label", parentEle, "search_label", undefined, "Search:");
+    labelEle.setAttribute("for", "search_input");
+    var inputEle = advancedCreateElement("input", parentEle, "search_input", undefined, undefined);
+    inputEle.setAttribute("id", "search_input");
+    inputEle.setAttribute("size", "20");
+    var listWrapper = advancedCreateElement("div", parentEle, "search_list_wrapper", undefined, undefined);
+    listWrapper.setAttribute("id", "search_list_wrapper");
+    //set globals
+    searchField = inputEle;
+    searchField.addEventListener("keyup", search_keyup);
+    searchListWrapper = listWrapper;
+  };
 }
+
+function MenuPane()
+{
+  this.icon = {
+    src: "img/menu-inactive.png",
+    width: 50,
+    height: 50,
+    idName: "img_menu",
+    className: undefined,
+    title: undefined
+  };
+  this.init = function(parentEle) {
+    advancedCreateElement("p", parentEle, undefined, undefined, "Here to be a list of links to show: Pouplar Playlists, Popular Files, Newest Playlist, Newest Files, etc...");
+  };
+}
+
 function configurationRescanAllFiles()
 {
   if(secondPane)
