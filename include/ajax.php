@@ -1,4 +1,207 @@
 <?php
+
+class search_query_result {
+    public $total_count = 0;
+    public $result_count = 0;
+    public $offset = 0;
+    public $rows = array();
+    public $success = true;
+    public $search_query = '';
+}
+
+function query_db($search_str = NULL, $search_type = "all", $search_limit = 10, $search_offset = 0, $search_count_results = true, $sorting_keys = array("type" => "DESC", "count_played" => "DESC", "name" => "ASC"))
+{
+    global $dbcon;
+
+    $search_str = $dbcon->real_escape_string($search_str);
+    $result_set = new search_query_result();
+    if($search_count_results)
+    {
+        $select_sql = '';
+        if('all' == $search_type || 'file' == $search_type)
+        {
+            $select_sql .= 'SELECT COUNT(`filecache`.`id`) AS \'count_matches\' FROM `filecache` WHERE `filecache`.`valid`=\'Y\'';
+            if(NULL != $search_str)
+            {
+                $select_sql .= 'AND (`filecache`.`path_filename` LIKE \'%' . $search_str . '%\' OR `filecache`.`id`=ANY(SELECT DISTINCT `relation_tags`.`fid` FROM `relation_tags` WHERE `relation_tags`.`tid`= ANY(SELECT `tags`.`id` FROM `tags` WHERE `tagname` LIKE \'%' . $search_str . '%\')))';
+            }
+        }
+        if('all' == $search_type)
+        {
+            $select_sql .= ' UNION ';
+        }
+        if('all' == $search_type || 'playlist' == $search_type)
+        {
+            $select_sql .= 'SELECT COUNT(`id`) AS \'count_matches\' FROM `playlists`';
+            if(NULL != $search_str)
+            {
+                $select_sql .= ' WHERE `name` LIKE \'%' . $search_str . '%\'';
+            }
+        }
+        $result_matches = @$dbcon->query($select_sql);
+        if(!(FALSE === $result_matches))
+        {
+            while($cur_row = $result_matches->fetch_assoc())
+            {
+                $result_set->total_count += (int) $cur_row['count_matches'];
+            }
+            
+        }
+    }
+    $select_sql = '';
+    if('all' == $search_type || 'file' == $search_type)
+    {
+        $select_sql .= 'SELECT `id`,`path_filename` AS \'name\', \'file\' AS \'type\',`count_played` AS \'count_played\' FROM `filecache` WHERE `valid`=\'Y\'';
+        if(NULL != $search_str)
+        {
+            $select_sql .= ' AND (`filecache`.`path_filename` LIKE \'%' . $search_str . '%\' OR `filecache`.`id`=ANY(SELECT DISTINCT `relation_tags`.`fid` FROM `relation_tags` WHERE `relation_tags`.`tid`= ANY(SELECT `tags`.`id` FROM `tags` WHERE `tagname` LIKE \'%' . $search_str . '%\')))';
+        }
+    }
+    if('all' == $search_type)
+    {
+        $select_sql = '(' . $select_sql . ') UNION (';
+    }
+    if('all' == $search_type || 'playlist' == $search_type)
+    {
+        $select_sql .= 'SELECT `id`, `name`, \'playlist\' AS \'type\', `count_played` AS \'count_played\' FROM `playlists`';
+        if(NULL != $search_str)
+        {
+            $select_sql .= ' WHERE `name` LIKE \'%' . $search_str . '%\'';
+        }
+    }
+    if('all' == $search_type)
+    {
+        $select_sql .= ')';
+    }
+    if($sorting_keys && 0 < count($sorting_keys))
+    {
+        $i = 0;
+        $valid_rows = array('id', 'name', 'type', 'count_played');
+        foreach($sorting_keys as $row_name => $ascending)
+        {
+            if(in_array($row_name, $valid_rows))
+            {
+                if(in_array($ascending, array('ASC', 'DESC')))
+                {
+                    if(0 == $i)
+                    {
+                        $select_sql .= ' ORDER BY';
+                    } else
+                    {
+                        $select_sql .= ',';
+                    }
+                    $select_sql .= ' `' . $row_name . '` ' . $ascending;
+                    $i++;
+                }
+            }
+        }
+    }
+    if(NULL != $search_limit || NULL != $search_offset)
+    {
+        if(NULL == $search_limit || 0 > $search_limit)
+        {
+            // infinite, just some large number
+            // as from documentation: https://dev.mysql.com/doc/refman/5.7/en/select.html
+            $search_limit = '18446744073709551615';
+        }
+        if(NULL == $search_offset || 0 > $search_offset)
+        {
+            $search_offset = 0;
+        } else
+        {
+            $result_set->offset = $search_offset;
+        }
+        $select_sql .= ' LIMIT ' . $search_offset . ',' . $search_limit;
+    }
+    $result_set->search_query = $select_sql;
+    $result_matches = @$dbcon->query($select_sql);
+    if(!(FALSE === $result_matches))
+    {
+        $select_sql = 'SELECT `relation_tags`.`fid` AS \'id\', GROUP_CONCAT(`tags`.`tagname`) AS \'tags\' FROM `relation_tags` INNER JOIN `tags` ON `relation_tags`.`tid`=`tags`.`id` WHERE ';
+        $i = 0;
+        $j = 0;
+        $match_arr = array();
+        while($cur_row = $result_matches->fetch_assoc())
+        {
+            $result_set->rows[] = array(
+                'id' => $cur_row['id'],
+                'name' => $cur_row['name'],
+                'type' => $cur_row['type'],
+                'count_played' => $cur_row['count_played'],
+                'tags' => ''
+              );
+            if('file' == $cur_row['type'])
+            {
+                if(0 < $j)
+                {
+                    $select_sql .= ' OR ';
+                }
+                $select_sql .= '`relation_tags`.`fid`=' . $cur_row['id'];
+                $match_arr[(int) $cur_row['id']] = $i;
+                $j++;
+            }
+            $i++;
+        }
+        $result_set->result_count = $i;
+        if(0 < $j)
+        {
+            $select_sql .= ' GROUP BY `relation_tags`.`fid`';
+            $tags_result = @$dbcon->query($select_sql);
+            if(!(FALSE === $tags_result))
+            {
+                while($cur_row = $tags_result->fetch_assoc())
+                {
+                    $cur_id = (int) $cur_row['id'];
+                    if(isset($match_arr[$cur_id]))
+                    {
+                        $result_set->rows[$match_arr[$cur_id]]['tags'] = $cur_row['tags'];
+                    }
+                }
+            }
+        }
+    } else
+    {
+        $result_set->success = false;
+    }
+    return $result_set;
+}
+
+function print_result_json($result_obj)
+{
+    global $AJAX_PAGE_LIMIT;
+
+    if($result_obj->success)
+    {
+        if(0 < $result_obj->total_count)
+        {
+            echo "{\n\"success\": true,\n\"countMatches\":";
+            echo $result_obj->total_count . ",\n\"pageLimit\":" . $AJAX_PAGE_LIMIT;
+            echo ",\n\"offsetMatches\":" . $result_obj->offset . ",\n\"matches\": [\n";
+            $i = 0;
+            foreach($result_obj->rows as $cur_key => $cur_arr)
+            {
+                if(0 < $i) echo ",\n";
+                echo "{ \"id\": " . $cur_arr['id'];
+                echo ", \"type\": \"" . $cur_arr['type'];
+                echo "\", \"countPlayed\": " . $cur_arr['count_played'];
+                echo ", \"name\": \"" . js_escape($cur_arr['name']) . "\"";
+                echo ", \"tags\": \"" . js_escape($cur_arr['tags']) . "\"}";
+                $i++;
+            }
+            echo "]\n}";
+        } else
+        {
+            client_error('no query results', true);
+        }
+    } else
+    {
+        server_error('database query failure', true);
+    }
+}
+
+
+
+
 prepare_premature_disconnect();
 if(isset($_GET['matching_tracks']))
 {
@@ -18,83 +221,8 @@ if(isset($_GET['matching_tracks']))
                 $search_offset = 0;
             }
         }
-        $search_subject = $dbcon->real_escape_string($search_subject);
-        $count_matches = 0;
-
-        $result_matches = @$dbcon->query('SELECT COUNT(`filecache`.`id`) AS \'count_matches\' FROM `filecache` WHERE `filecache`.`valid`=\'Y\' AND (`filecache`.`path_filename` LIKE \'%' . $search_subject . '%\' OR `filecache`.`id`=ANY(SELECT DISTINCT `relation_tags`.`fid` FROM `relation_tags` WHERE `relation_tags`.`tid`= ANY(SELECT `tags`.`id` FROM `tags` WHERE `tagname` LIKE \'%' . $search_subject . '%\'))) UNION SELECT COUNT(`id`) AS \'count_matches\' FROM `playlists` WHERE `name` LIKE \'%' . $search_subject . '%\'');
-        if(!(FALSE === $result_matches))
-        {
-            while($cur_row = $result_matches->fetch_assoc())
-            {
-                $count_matches += (int) $cur_row['count_matches'];
-            }
-
-
-            if(0 < $count_matches)
-            {
-
-                $result_matches = @$dbcon->query('(SELECT `id`,`path_str`, \'file\' AS \'type\',`count_played` AS \'count_played\' FROM `filecache` WHERE `valid`=\'Y\' AND (`filecache`.`path_filename` LIKE \'%' . $search_subject . '%\' OR `filecache`.`id`=ANY(SELECT DISTINCT `relation_tags`.`fid` FROM `relation_tags` WHERE `relation_tags`.`tid`= ANY(SELECT `tags`.`id` FROM `tags` WHERE `tagname` LIKE \'%' . $search_subject . '%\')))) UNION (SELECT `id`, `name`, \'playlist\' AS \'type\', `count_played` AS \'count_played\' FROM `playlists` WHERE `name` LIKE \'%' . $search_subject . '%\') ORDER BY `type` DESC, `count_played` DESC, `path_str` ASC LIMIT ' . $search_offset . ',' . $AJAX_PAGE_LIMIT);
-                if(!(FALSE === $result_matches))
-                {
-                    $matches_arr = array();
-                    $select_sql = 'SELECT `relation_tags`.`fid` AS \'id\', GROUP_CONCAT(`tags`.`tagname`) AS \'tags\' FROM `relation_tags` INNER JOIN `tags` ON `relation_tags`.`tid`=`tags`.`id` WHERE ';
-                    // 'GROUP BY `relation_tags`.`fid`';
-                    $i = 0;
-                    while($cur_row = $result_matches->fetch_assoc())
-                    {
-                        $matches_item = array();
-                        $matches_item['id'] = (int) $cur_row['id'];
-                        $matches_item['type'] = $cur_row['type'];
-                        $matches_item['countPlayed'] = (int) $cur_row['count_played'];
-                        $matches_item['name'] = $cur_row['path_str'];
-                        $matches_item['tags'] = '';
-                        $matches_arr[$matches_item['id']] = $matches_item;
-                        if('file' == $matches_item['type'])
-                        {
-                            if(0 < $i)
-                            {
-                                $select_sql .= ' OR ';
-                            }
-                            $select_sql .= '`relation_tags`.`fid`=' . $matches_item['id'];
-                            $i++;
-                        }
-                    }
-                    $select_sql .= ' GROUP BY `relation_tags`.`fid`';
-                    $tags_result = $dbcon->query($select_sql);
-                    while($cur_row = $tags_result->fetch_assoc())
-                    {
-                        $cur_id = (int) $cur_row['id'];
-                        if(isset($matches_arr[$cur_id]))
-                        {
-                            $matches_arr[$cur_id]['tags'] = $cur_row['tags'];
-                        }
-                    }
-                    echo "{\n\"success\": true,\n\"countMatches\":";
-                    echo $count_matches . ",\n\"pageLimit\":" . $AJAX_PAGE_LIMIT;
-                    echo ",\n\"offsetMatches\":" . $search_offset . ",\n\"matches\": [\n";
-                    $i = 0;
-                    foreach($matches_arr as $cur_key => $cur_arr)
-                    {
-                        if(0 < $i) echo ",\n";
-                        echo "{ \"id\": " . $cur_key . ", \"type\": \"" . $cur_arr['type'];
-                        echo "\",\"countPlayed\": " . $cur_arr['countPlayed'];
-                        echo ",\"name\": \"" . js_escape($cur_arr['name']) . "\"";
-                        echo ",\"tags\": \"" . js_escape($cur_arr['tags']) . "\"}";
-                        $i++;
-                    }
-                    echo "]\n}";
-                } else
-                {
-                    server_error('database query failure', true);
-                }
-            } else
-            {
-                server_error('database query failure', true);
-            }
-        } else
-        {
-            client_error('no query results', true);
-        }
+        $results = query_db($search_subject, 'all' , $AJAX_PAGE_LIMIT, $search_offset, true);
+        print_result_json($results);
     }
 } else if(isset($_GET['request_track']))
 {
@@ -319,51 +447,14 @@ if(isset($_GET['matching_tracks']))
     echo "{ \"success\": true }";
 } else if(isset($_GET['popular']))
 {
-    $result_matches = @$dbcon->query('(SELECT `id`,`path_str` AS \'name\', \'file\' AS \'type\',`count_played` AS \'count_played\' FROM `filecache` WHERE `valid`=\'Y\' ORDER BY `count_played` DESC LIMIT 5) UNION (SELECT `id`, `name`, \'playlist\' AS \'type\', `count_played` AS \'count_played\' FROM `playlists` ORDER BY `count_played` DESC LIMIT 5) ORDER BY `type` DESC, `count_played` DESC LIMIT 10');
-    if(!(FALSE === $result_matches))
+    $results_playlist = query_db(NULL, 'playlist', 5, 0, false);
+    $results_file     = query_db(NULL, 'file'    , 5, 0, false);
+    if($results_playlist->success || $results_file->success)
     {
-        $count_matches = $result_matches->num_rows;
-        $tag_arr = array();
-        $select_sql = 'SELECT `relation_tags`.`fid` AS \'id\', GROUP_CONCAT(`tagname` SEPARATOR \',\') AS \'tags\' FROM `tags` INNER JOIN `relation_tags` ON `relation_tags`.`tid`=`tags`.`id` WHERE ';
-        $i = 0;
-        while($cur_row = $result_matches->fetch_assoc())
-        {
-            if('file' == $cur_row['type'])
-            {
-                $tag_arr[$cur_row['id']] = "";
-                if(0 < $i)  $select_sql .= ' OR ';
-                $select_sql .= '`relation_tags`.`fid`=' . $cur_row['id'];
-                $i++;
-            }
-        }
-        if(0 < $i)
-        {
-            $select_sql .= ' GROUP BY `relation_tags`.`fid`';
-            $result_tags = $dbcon->query($select_sql);
-            while($cur_row = $result_tags->fetch_assoc())
-            {
-                $tag_arr[$cur_row['id']] = $cur_row['tags'];
-            }
-        }
-        $result_matches->data_seek(0);
-        echo "{\n\"success\": true,\n\"countMatches\":";
-        echo $count_matches . ",\n\"pageLimit\": 10";
-        echo ",\n\"offsetMatches\": 0,\n\"matches\": [\n";
-        $i = 0;
-        for($i = 0; $cur_row = $result_matches->fetch_assoc(); $i++)
-        {
-            if(0 < $i) echo ",\n";
-            echo "{ \"id\": " . $cur_row['id'] . ", \"type\": \"" . $cur_row['type'];
-            echo "\",\"countPlayed\": " . $cur_row['count_played'];
-            echo ",\"name\": \"" . js_escape($cur_row['name']) . "\"";
-            echo ",\"tags\": \"";
-            if('file' == $cur_row['type'] && isset($tag_arr[$cur_row['id']]))
-            {
-                echo js_escape($tag_arr[$cur_row['id']]);
-            }
-            echo "\"}";
-        }
-        echo "]\n}";
+        $results_all = new search_query_result();
+        $results_all->total_count = $results_all->result_count = $results_playlist->result_count + $results_file->result_count;
+        $results_all->rows = array_merge($results_playlist->rows, $results_file->rows);
+        print_result_json($results_all);
     } else
     {
         server_error('could not look up popular tracks', true);

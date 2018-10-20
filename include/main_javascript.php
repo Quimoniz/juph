@@ -12,6 +12,7 @@ var contextMenu;
 var sessionId;
 var secondPane;
 var ajax;
+var currentTracklist = undefined;
 function init()
 {
   audioPlayer = document.getElementById("audio_player");
@@ -41,7 +42,6 @@ function init()
 
   //initialize Playlist with previous session's playlist
   playlistObj.fetchSessionPlaylist();
-  fetchPopular();
 }
 var MultiPane = {
   wrapper: undefined,
@@ -164,6 +164,12 @@ function SearchPane()
     searchField = inputEle;
     searchField.addEventListener("keyup", search_keyup);
     searchListWrapper = listWrapper;
+    if(currentTracklist)
+    {
+      currentTracklist.assumeSearchList();
+    } else {
+      fetchPopular();
+    }
   };
 }
 
@@ -1036,7 +1042,6 @@ function ajax_matching_tracks(searchSubject, offset)
   ajax.requestSendedTime = (new Date()).getTime();
   ajax.send();
 }
-var currentTracklist = undefined;
 function Tracklist(tracklistJSON, requestSendedTime)
 {
   this.tracks = new Array();
