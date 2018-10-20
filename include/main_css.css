@@ -286,7 +286,15 @@ body {
   font-size: 20pt;
 }
 .configuration_button {
-  
+  margin: 5px;
+}
+.menu_search_list {
+  list-style-type: none;
+  padding: 0px;
+}
+.menu_search_link {
+  margin-bottom: 15px;
+  margin-left: 0px;
 }
 .configuration_session_id {
   word-spacing: 1em;

@@ -184,24 +184,25 @@ function MenuPane()
     title: undefined
   };
   this.init = function(parentEle) {
-    var curEle = advancedCreateElement("a", parentEle, "menu_search_link", undefined, "Popular");
-    curEle.addEventListener("click", function () { MultiPane.select("Search"); fetch_tracks("popular", "all", 0); });
-    advancedCreateElement("br", parentEle);
-    curEle = advancedCreateElement("a", parentEle, "menu_search_link", undefined, "Popular Playlists");
-    curEle.addEventListener("click", function () { MultiPane.select("Search"); fetch_tracks("popular", "playlist", 0); });
-    advancedCreateElement("br", parentEle);
-    curEle = advancedCreateElement("a", parentEle, "menu_search_link", undefined, "Popular Files");
-    curEle.addEventListener("click", function () { MultiPane.select("Search"); fetch_tracks("popular", "file", 0); });
-    advancedCreateElement("br", parentEle);
-    curEle = advancedCreateElement("a", parentEle, "menu_search_link", undefined, "Newest");
-    curEle.addEventListener("click", function () { MultiPane.select("Search"); fetch_tracks("newest", "all", 0); });
-    advancedCreateElement("br", parentEle);
-    curEle = advancedCreateElement("a", parentEle, "menu_search_link", undefined, "Newest Playlists");
-    curEle.addEventListener("click", function () { MultiPane.select("Search"); fetch_tracks("newest", "playlist", 0); });
-    advancedCreateElement("br", parentEle);
-    curEle = advancedCreateElement("a", parentEle, "menu_search_link", undefined, "Newest Files");
-    curEle.addEventListener("click", function () { MultiPane.select("Search"); fetch_tracks("newest", "file", 0); });
-    advancedCreateElement("br", parentEle);
+    var ulEle = advancedCreateElement("ul", parentEle, "menu_search_list");
+    var searchOptions = [
+        ["Popular", "popular", "all"],
+        ["Popular Playlists", "popular", "playlist"],
+        ["Popular Files", "popular", "file"],
+        ["Newest", "newest", "all"],
+        ["Newest Playlists", "newest", "playlist"],
+        ["Newest Files", "newest", "file"]
+      ];
+    for(var i = 0; i < searchOptions.length; ++i)
+    {
+      advancedCreateElement("li", ulEle, "menu_search_link", undefined, searchOptions[i][0]).addEventListener(
+          "click",
+          function(methodName, methodParam) { return function() {
+              MultiPane.select("Search");
+              fetch_tracks(methodName, methodParam);
+            }; }(searchOptions[i][1], searchOptions[i][2])
+        );
+    }
   };
 }
 
@@ -1043,7 +1044,7 @@ function fetch_tracks(methodName, methodParam, offset)
   var ajax = new XMLHttpRequest();
   ajax.open("GET", "?ajax&" + encodeURIComponent(methodName) + "=" + encodeURIComponent(methodParam) + "&matching_offset=" + encodeURIComponent(offset));
   ajax.addEventListener("load", function(param) {
-    console.log("Request took " + (((new Date()).getTime() - param.target.requestSendedTime)/1000) + " seconds");
+    console.log("Request for " + methodName + "=" + methodParam + " took " + (((new Date()).getTime() - param.target.requestSendedTime)/1000) + " seconds");
     process_matching_tracks(methodName, methodParam, param.target.responseText, param.target.requestSendedTime);
    });
   ajax.requestSendedTime = (new Date()).getTime();
