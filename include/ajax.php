@@ -447,17 +447,63 @@ if(isset($_GET['matching_tracks']))
     echo "{ \"success\": true }";
 } else if(isset($_GET['popular']))
 {
-    $results_playlist = query_db(NULL, 'playlist', 5, 0, false);
-    $results_file     = query_db(NULL, 'file'    , 5, 0, false);
-    if($results_playlist->success || $results_file->success)
+    $popular_mode = $_GET['popular'];
+    if(NULL == $popular_mode || '' == $popular_mode)
     {
-        $results_all = new search_query_result();
-        $results_all->total_count = $results_all->result_count = $results_playlist->result_count + $results_file->result_count;
-        $results_all->rows = array_merge($results_playlist->rows, $results_file->rows);
-        print_result_json($results_all);
+        $popular_mode = 'brief_all';
+    }
+    $search_offset = 0;
+    if(isset($_GET['matching_offset']))
+    {
+        $search_offset = (int) $_GET['matching_offset'];
+        if(0 > $search_offset)
+        {
+            $search_offset = 0;
+        }
+    }
+    if('brief_all' == $popular_mode)
+    {
+        $results_playlist = query_db(NULL, 'playlist', 5, 0, false);
+        $results_file     = query_db(NULL, 'file'    , 5, 0, false);
+        if($results_playlist->success || $results_file->success)
+        {
+            $results_all = new search_query_result();
+            $results_all->total_count = $results_all->result_count = $results_playlist->result_count + $results_file->result_count;
+            $results_all->rows = array_merge($results_playlist->rows, $results_file->rows);
+            print_result_json($results_all);
+        } else
+        {
+            server_error('could not look up popular tracks', true);
+        }
+    } else if('all' == $popular_mode)
+    {
+        print_result_json(query_db(NULL, 'all', $AJAX_PAGE_LIMIT, $search_offset, true));
+    } else if('playlist' == $popular_mode)
+    {
+        print_result_json(query_db(NULL, 'playlist', $AJAX_PAGE_LIMIT, $search_offset, true));
+    } else if('file' == $popular_mode)
+    {
+        print_result_json(query_db(NULL, 'file', $AJAX_PAGE_LIMIT, $search_offset, true));
+    }
+} else if(isset($_GET['newest']))
+{
+    $newest_mode = $_GET['newest'];
+    $search_offset = 0;
+    if(isset($_GET['matching_offset']))
+    {
+        $search_offset = (int) $_GET['matching_offset'];
+        if(0 > $search_offset)
+        {
+            $search_offset = 0;
+        }
+    }
+    $search_order = array('id' => 'DESC', 'type' => 'DESC', 'count_played' => 'DESC');
+    if(in_array($newest_mode, array('playlist', 'file')))
+    {
+        print_result_json(query_db(NULL, $newest_mode, $AJAX_PAGE_LIMIT, $search_offset, true, $search_order));
     } else
     {
-        server_error('could not look up popular tracks', true);
+        print_result_json(query_db(NULL, 'all', $AJAX_PAGE_LIMIT, $search_offset, true, $search_order));
     }
 }
 

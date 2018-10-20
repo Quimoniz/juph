@@ -184,7 +184,24 @@ function MenuPane()
     title: undefined
   };
   this.init = function(parentEle) {
-    advancedCreateElement("p", parentEle, undefined, undefined, "Here to be a list of links to show: Pouplar Playlists, Popular Files, Newest Playlist, Newest Files, etc...");
+    var curEle = advancedCreateElement("a", parentEle, "menu_search_link", undefined, "Popular");
+    curEle.addEventListener("click", function () { MultiPane.select("Search"); fetch_tracks("popular", "all", 0); });
+    advancedCreateElement("br", parentEle);
+    curEle = advancedCreateElement("a", parentEle, "menu_search_link", undefined, "Popular Playlists");
+    curEle.addEventListener("click", function () { MultiPane.select("Search"); fetch_tracks("popular", "playlist", 0); });
+    advancedCreateElement("br", parentEle);
+    curEle = advancedCreateElement("a", parentEle, "menu_search_link", undefined, "Popular Files");
+    curEle.addEventListener("click", function () { MultiPane.select("Search"); fetch_tracks("popular", "file", 0); });
+    advancedCreateElement("br", parentEle);
+    curEle = advancedCreateElement("a", parentEle, "menu_search_link", undefined, "Newest");
+    curEle.addEventListener("click", function () { MultiPane.select("Search"); fetch_tracks("newest", "all", 0); });
+    advancedCreateElement("br", parentEle);
+    curEle = advancedCreateElement("a", parentEle, "menu_search_link", undefined, "Newest Playlists");
+    curEle.addEventListener("click", function () { MultiPane.select("Search"); fetch_tracks("newest", "playlist", 0); });
+    advancedCreateElement("br", parentEle);
+    curEle = advancedCreateElement("a", parentEle, "menu_search_link", undefined, "Newest Files");
+    curEle.addEventListener("click", function () { MultiPane.select("Search"); fetch_tracks("newest", "file", 0); });
+    advancedCreateElement("br", parentEle);
   };
 }
 
@@ -1007,48 +1024,40 @@ function ContextMenuClass(posX, posY, parentNode, optionsArr)
 function onTagClicked(tagName)
 {
   searchField.value = tagName;
-  ajax_matching_tracks(tagName, 0);
+  fetch_tracks("matching_tracks", tagName, 0);
 }
 function search_keyup(eventObj)
 {
   var searchSubject = searchField.value;
   if(2 < searchSubject.length)
   {
-    ajax_matching_tracks(searchSubject,0);
+    fetch_tracks("matching_tracks", searchSubject, 0);
   } else if(eventObj && "Enter" == eventObj.code)
   {
     removeChilds(searchListWrapper);
   }
 }
-function fetchPopular()
-{
-  var req = new XMLHttpRequest();
-  req.open("GET", "?ajax&popular");
-  req.addEventListener("load", function(param) {
-    console.log("Request took " + (((new Date()).getTime() - param.target.requestSendedTime)/1000) + " seconds");
-    process_matching_tracks(param.target.responseText, param.target.requestSendedTime);
-   });
-  req.requestSendedTime = (new Date()).getTime();
-  req.send();
-}
-function ajax_matching_tracks(searchSubject, offset)
+function fetchPopular() { fetch_tracks("popular", "brief_all", 0); }
+function fetch_tracks(methodName, methodParam, offset)
 {
   var ajax = new XMLHttpRequest();
-  ajax.open("GET", "?ajax&matching_tracks=" + encodeURIComponent(searchSubject) + "&matching_offset=" + encodeURIComponent(offset));
+  ajax.open("GET", "?ajax&" + encodeURIComponent(methodName) + "=" + encodeURIComponent(methodParam) + "&matching_offset=" + encodeURIComponent(offset));
   ajax.addEventListener("load", function(param) {
     console.log("Request took " + (((new Date()).getTime() - param.target.requestSendedTime)/1000) + " seconds");
-    process_matching_tracks(param.target.responseText, param.target.requestSendedTime);
+    process_matching_tracks(methodName, methodParam, param.target.responseText, param.target.requestSendedTime);
    });
   ajax.requestSendedTime = (new Date()).getTime();
   ajax.send();
 }
-function Tracklist(tracklistJSON, requestSendedTime)
+function Tracklist(methodName, methodParam, tracklistJSON, requestSendedTime)
 {
   this.tracks = new Array();
   this.pageLimit = 100;
   this.pageOffset = 0;
   this.matchCount = 0;
   this.requestSendedTime = requestSendedTime;
+  this.getMethod = methodName;
+  this.getParam = methodParam;
   if(tracklistJSON.success)
   {
     this.matchCount = tracklistJSON.countMatches;
@@ -1097,13 +1106,13 @@ function Tracklist(tracklistJSON, requestSendedTime)
           if(0 < i && 1 < Math.abs(showPages[i] - showPages[i - 1]))
           {
             var fillerLink = advancedCreateElement("a", fillerEle, undefined, undefined, "...");
-            fillerLink.addEventListener("click", function(max, cur, pageLimit) { return function(evt) {
+            fillerLink.addEventListener("click", function(max, cur, pageLimit, methodName, methodParam) { return function(evt) {
               var desiredPage = parseInt(prompt("Which page is to be loaded? (maximum " + max + ")", cur + 1));
               if(0 < desiredPage && desiredPage <= max)
               {
-                ajax_matching_tracks(searchField.value, (desiredPage - 1) * pageLimit);
+                fetch_tracks(methodName, methodParam, (desiredPage - 1) * pageLimit);
               }
-              };}(maxPages, curPage, this.pageLimit));
+              };}(maxPages, curPage, this.pageLimit, this.getMethod, this.getParam));
             fillerEle.appendChild(fillerLink);
           } else
           {
@@ -1118,7 +1127,7 @@ function Tracklist(tracklistJSON, requestSendedTime)
           curPageNumEle.setAttribute("class", className);
           if(showPages[i] != curPage)
           {
-            curPageNumEle.setAttribute("href", "javascript:ajax_matching_tracks(searchField.value," + showPages[i] * this.pageLimit + ")");
+            curPageNumEle.setAttribute("href", "javascript:fetch_tracks('" + this.getMethod + "', '" + this.getParam + "'," + showPages[i] * this.pageLimit + ")");
           }
           curPageNumEle.appendChild(document.createTextNode("" + (showPages[i] + 1)));
           pageNumEle.appendChild(curPageNumEle);
@@ -1170,7 +1179,7 @@ function Tracklist(tracklistJSON, requestSendedTime)
     }
   }
 }
-function process_matching_tracks(responseText, requestSendedTime)
+function process_matching_tracks(methodName, methodParam, responseText, requestSendedTime)
 {
   if(currentTracklist && currentTracklist.requestSendedTime > requestSendedTime)
   {
@@ -1190,7 +1199,7 @@ function process_matching_tracks(responseText, requestSendedTime)
   }
   if(responseJSON)
   {
-    currentTracklist = new Tracklist(responseJSON, requestSendedTime);
+    currentTracklist = new Tracklist(methodName, methodParam, responseJSON, requestSendedTime);
     currentTracklist.assumeSearchList();
   }
 }
