@@ -152,16 +152,21 @@ function SearchPane()
     className: undefined,
     title: undefined
   };
+  this.inputEle = undefined;
+  this.keyboardEle = undefined;
+  this.letterEles = new Array();
+  this.lettersLowercase = false;
   this.init = function(parentEle) {
     var labelEle = advancedCreateElement("label", parentEle, "search_label", undefined, "Search:");
     labelEle.setAttribute("for", "search_input");
-    var inputEle = advancedCreateElement("input", parentEle, "search_input", undefined, undefined);
-    inputEle.setAttribute("id", "search_input");
-    inputEle.setAttribute("size", "20");
+    this.inputEle = advancedCreateElement("input", parentEle, "search_input", undefined, undefined);
+    this.inputEle.setAttribute("id", "search_input");
+    this.inputEle.setAttribute("size", "20");
+    this.inputEle.addEventListener("click", function(inputEle, selfReference) { return function() { selfReference.inputKeyboard(inputEle); } }(this.inputEle, this));
     var listWrapper = advancedCreateElement("div", parentEle, "search_list_wrapper", undefined, undefined);
     listWrapper.setAttribute("id", "search_list_wrapper");
     //set globals
-    searchField = inputEle;
+    searchField = this.inputEle;
     searchField.addEventListener("keyup", search_keyup);
     searchListWrapper = listWrapper;
     if(currentTracklist)
@@ -171,6 +176,65 @@ function SearchPane()
       fetchPopular();
     }
   };
+  this.inputKeyboard = function(inputEle)
+  {
+    if(this.keyboardEle)
+    {
+      return;
+    }
+    var keys = [ ['Q', 'W', 'E', 'R', 'T', 'Y', 'U', 'I',
+                'O', 'P'], ['A', 'S', 'D', 'F', 'G', 'H',
+                'J', 'K', 'L', ':'], ['Z', 'X', 'C', 'V', 'B',
+                'N', 'M', '.', '-', '_']];
+    var keyboardMain = document.createElement("div");
+    keyboardMain.setAttribute("class", "keyboard_main_wrapper");
+    var keyboardLetters = advancedCreateElement("div", keyboardMain, "keyboard_letter_wrapper");
+    for(var i = 0; i < keys.length; ++i)
+    {
+      for(var j = 0; j < keys[i].length; ++j)
+      {
+        var curLetter = advancedCreateElement("div", keyboardLetters, "keyboard_key_letter", undefined, keys[i][j]);
+        curLetter.addEventListener("click", function(selfReference, keyboardMain, key) { return function() { selfReference.keyClicked(keyboardMain, key); }; }(this, keyboardMain, keys[i][j]));;
+        this.letterEles.push(curLetter);
+      }
+    }
+    advancedCreateElement("div", keyboardLetters, "keyboard_key_shift", undefined, "⇫").addEventListener("click", function(selfReference, keyboardMain, key) { return function() { selfReference.keyClicked(keyboardMain, key); }; }(this, keyboardMain, "shift"));
+    advancedCreateElement("div", keyboardLetters, "keyboard_key_space", undefined, " ").addEventListener("click", function(selfReference, keyboardMain, key) { return function() { selfReference.keyClicked(keyboardMain, key); }; }(this, keyboardMain, " "));
+    advancedCreateElement("div", keyboardMain, "keyboard_key_enter", undefined, "↵").addEventListener("click", function(selfReference, keyboardMain, key) { return function() { selfReference.keyClicked(keyboardMain, key); }; }(this, keyboardMain, "\n"));
+    this.keyboardEle = BODY.appendChild(keyboardMain);
+  };
+  this.keyClicked = function(keyboardEle, key)
+  {
+    if("shift" == key) {
+      //TODO: program me somehow
+      this.lettersLowercase = !this.lettersLowercase;
+      for(var i = 0; i < this.letterEles.length; ++i)
+      {
+        if(this.lettersLowercase)
+        {
+          this.letterEles[i].firstChild.nodeValue = this.letterEles[i].firstChild.nodeValue.toLowerCase();
+        } else {
+          this.letterEles[i].firstChild.nodeValue = this.letterEles[i].firstChild.nodeValue.toUpperCase();
+        }
+      }
+    } else if("\n" == key)
+    {
+      this.keyboardEle.parentNode.removeChild(this.keyboardEle);
+      this.keyboardEle = undefined;
+      this.letterEles = new Array();
+      this.lettersLowercase = false;
+      fetch_tracks("matching_tracks", this.inputEle.value, 0);
+    } else
+    {
+      if(this.lettersLowercase)
+      {
+        this.inputEle.value += key.toLowerCase();
+      } else
+      {
+        this.inputEle.value += key.toUpperCase();
+      }
+    }
+  }
 }
 
 function MenuPane()
