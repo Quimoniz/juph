@@ -39,6 +39,7 @@ function init()
   MultiPane.registerPopulator("Search", SearchPane);
   MultiPane.registerPopulator("Configuration", ConfigurationPane);
   MultiPane.registerPopulator("Menu", MenuPane);
+  MultiPane.registerPopulator("Radio", RadioPane);
 
   //initialize Playlist with previous session's playlist
   playlistObj.fetchSessionPlaylist();
@@ -130,7 +131,7 @@ function ConfigurationPane()
     height: 51,
     idName: "img_gear",
     className: undefined,
-    title: undefined
+    title: "Configuration Pane"
   };
   this.init = function(parentEle) {
     myPane = advancedCreateElement("div", parentEle, "configuration_wrapper");
@@ -150,7 +151,7 @@ function SearchPane()
     height: 51,
     idName: "img_search",
     className: undefined,
-    title: undefined
+    title: "Search Pane"
   };
   this.inputEle = undefined;
   this.keyboardEle = undefined;
@@ -236,6 +237,25 @@ function SearchPane()
     }
   }
 }
+function RadioPane()
+{
+  this.icon = {
+    src: "img/radio-inactive.png",
+    width: 50,
+    height: 50,
+    idName: "img_radio",
+    className: undefined,
+    title: "Radio Pane"
+  };
+  this.init = function(parentEle) {
+    advancedCreateElement("p", parentEle, undefined, undefined, "The programmer has been too lazy to program this feature yet.");
+    advancedCreateElement("div", parentEle, "radio_play_button", undefined, "Play Klassik Radio").addEventListener("click", function() {
+        audioPlayer.pause();
+        audioPlayer.setAttribute("src", "https://klassikr.streamabc.net/klassikradio-simulcast-mp3-mq?sABC=5oq1r14o%230%234ro365069486n29r5oo7n8ps8456q010%237Qvtvgny");
+        audioPlayer.play();
+      });
+  };
+}
 
 function MenuPane()
 {
@@ -245,7 +265,7 @@ function MenuPane()
     height: 50,
     idName: "img_menu",
     className: undefined,
-    title: undefined
+    title: "Menu Pane"
   };
   this.init = function(parentEle) {
     var ulEle = advancedCreateElement("ul", parentEle, "menu_search_list");
