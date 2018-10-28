@@ -16,12 +16,7 @@
 </div>
 </div>
 <div class="options_wrapper">
-<!--
-<img id="img_search" src="img/looking-glass-big.png" width="48" height="51" /><br/>
-<img id="img_gear" src="img/gear.png" width="50" height="51" /><br/>
-<img id="img_menu" src="img/menu-inactive.png" width="50" height="50" /><br/>
--->
 </div>
 <div class="bugreport_wrapper">
-<a class="bugreport_link" target="_blank" href="http://resonanzkaska.de/bugreport/">Bugreport</a>
+<a class="bugreport_link" target="_blank" href="http://resonanzkaska.de/bugreport/?subject=juph">Bugreport</a>
 </div>

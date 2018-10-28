@@ -10,6 +10,7 @@ var playlistObj;
 var BODY;
 var contextMenu;
 var sessionId;
+var userAgent;
 var secondPane;
 var ajax;
 var currentTracklist = undefined;
@@ -34,6 +35,7 @@ function init()
                     html.clientHeight, html.scrollHeight, html.offsetHeight);
   }
   sessionId = <?php echo "\"" . js_escape($SESSION_ID) . "\";";  ?>
+  userAgent = <?php echo "\"" . js_escape($_SERVER['HTTP_USER_AGENT']) . "\""; ?>;
   juffImg.init();
   MultiPane.init();
   MultiPane.registerPopulator("Search", SearchPane);
@@ -163,7 +165,11 @@ function SearchPane()
     this.inputEle = advancedCreateElement("input", parentEle, "search_input", undefined, undefined);
     this.inputEle.setAttribute("id", "search_input");
     this.inputEle.setAttribute("size", "20");
-    this.inputEle.addEventListener("click", function(inputEle, selfReference) { return function() { selfReference.inputKeyboard(inputEle); } }(this.inputEle, this));
+    // Restrict showing the virtual keyboard
+    if(-1 < userAgent.indexOf("(X11; Linux armv7l)"))
+    {
+      this.inputEle.addEventListener("click", function(inputEle, selfReference) { return function() { selfReference.inputKeyboard(inputEle); } }(this.inputEle, this));
+    }
     var listWrapper = advancedCreateElement("div", parentEle, "search_list_wrapper", undefined, undefined);
     listWrapper.setAttribute("id", "search_list_wrapper");
     //set globals
@@ -233,6 +239,10 @@ function SearchPane()
       } else
       {
         this.inputEle.value += key.toUpperCase();
+      }
+      if(2 < this.inputEle.value.length)
+      {
+        fetch_tracks("matching_tracks", this.inputEle.value, 0);
       }
     }
   }
