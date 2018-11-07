@@ -141,7 +141,7 @@ function ConfigurationPane()
     var logOutButton = advancedCreateElement("button", myPane, "configuration_button", undefined, "Log Out");
     logOutButton.addEventListener("click", doLogOut);
     var rescanButton = advancedCreateElement("button", myPane, "configuration_button", undefined, "Rescan all files");
-    rescanButton.addEventListener("click", function () { if(confirm("Are you sure you want to rescan all files?")) { configurationRescanAllFiles(); } });
+    rescanButton.addEventListener("click", function(parentEle) { return function () { if(confirm("Are you sure you want to rescan all files?")) { configurationRescanAllFiles(parentEle); } } }(parentEle));
     var sessionIdEle = advancedCreateElement("div", myPane, "configuration_session_id", undefined, "Session-Id: " + sessionId);
   };
 }
@@ -182,6 +182,7 @@ function SearchPane()
     } else {
       fetchPopular();
     }
+    this.inputEle.focus();
   };
   this.inputKeyboard = function(inputEle)
   {
@@ -300,16 +301,16 @@ function MenuPane()
   };
 }
 
-function configurationRescanAllFiles()
+function configurationRescanAllFiles(parentEle)
 {
-  if(secondPane)
+  if(parentEle)
   {
     for(var arrEles = document.querySelectorAll(".configuration_button"), i = 0; i < arrEles.length; ++i)
     {
       arrEles[i].disabled = true;
     }
-    advancedCreateElement("br", secondPane);
-    var processEle = advancedCreateElement("div", secondPane, "configuration_processing", undefined, ".");
+    advancedCreateElement("br", parentEle);
+    var processEle = advancedCreateElement("div", parentEle, "configuration_processing", undefined, ".");
     var req = new XMLHttpRequest();
     req.open("GET", "?ajax&scan_music_dir");
     req.addEventListener("load", function(processEle) {
