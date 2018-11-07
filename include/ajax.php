@@ -199,10 +199,32 @@ function print_result_json($result_obj)
     }
 }
 
+$perform_disconnect_trick = true;
+//do not perform the premature disconnect trick if we
+//  are dealing with a full-scale request for ALL of
+//  a song. Since we must prebuffer the request for
+//  the premature disconnect trick. Which would require
+//  loading all of a file's contents in a buffer before
+//  serving it.  We also don't want to do that, because
+//  loading all of the file, and then having the browser
+//  abort the download in the middle of transfer makes
+//  us waste ressources unnecessarily. And that case
+//  happens usually for _EVERY_ track above like 1-2
+//  minutes in length.
+//  Not buffering all the file's content also gives the
+//  user a significant performance boost, e.g. a 1 hour
+//  long song now starts to play after 2 seconds instead
+//  of 6 seconds.
+if(isset($_GET['request_track']) && !isset($_SERVER['HTTP_RANGE']))
+{
+    $perform_disconnect_trick = false;
+}
 
+if($perform_disconnect_trick)
+{
+    prepare_premature_disconnect();
+}
 
-
-prepare_premature_disconnect();
 if(isset($_GET['matching_tracks']))
 {
     $search_subject = $_GET['matching_tracks'];
@@ -241,6 +263,8 @@ if(isset($_GET['matching_tracks']))
                 header('Accept-Ranges: bytes');
                 $file_start = 0;
                 $file_end = -1;
+                $file_filesize = filesize($result_path);
+                $CHUNK_SIZE = 2000000;
                 if(isset($_SERVER['HTTP_RANGE']))
                 {
                     preg_match('/bytes=([0-9]+)-([0-9]+)?/', $_SERVER['HTTP_RANGE'], $byte_matches);
@@ -254,10 +278,14 @@ if(isset($_GET['matching_tracks']))
                     }
                 }
                 
+                if(0 == $file_start)
+                {
+                    @$dbcon->query('UPDATE `filecache` SET `count_played`=`count_played`+1 WHERE `filecache`.`id`=' . $target_id);
+                }
+
                 if(0 != $file_start || -1 != $file_end)
                 {
                     $file_handle = fopen($result_path, 'r');
-                    $file_filesize = filesize($result_path);
                     if($file_start < $file_filesize)
                     {
                         if(0 < $file_start)
@@ -282,11 +310,20 @@ if(isset($_GET['matching_tracks']))
                     // "If you just want to get the contents of a file into a string,
                     //  use file_get_contents() as it has much better performance
                     //  than the code above." - documentation from fread()
-                    echo  file_get_contents($result_path);
-                }
-                if(0 == $file_start)
-                {
-                    @$dbcon->query('UPDATE `filecache` SET `count_played`=`count_played`+1 WHERE `filecache`.`id`=' . $target_id);
+                    // Note by Quimoniz: HEY! if you read in a 1 hour song
+                    //   it still takes over 5 seconds!
+                    //   so just send chunks, until client aborts connection,
+                    //   or all was served
+                    //echo  file_get_contents($result_path);
+                    $file_offset = 0;
+                    $file_handle = fopen($result_path, 'r');
+                    header('Content-Length: ' . $file_filesize);
+                    while($file_offset < $file_filesize)
+                    {
+                        echo fread($file_handle, $CHUNK_SIZE);
+                        $file_offset += $CHUNK_SIZE;
+                    }
+                    fclose($file_handle);
                 }
             } else
             {
@@ -507,7 +544,10 @@ if(isset($_GET['matching_tracks']))
     }
 }
 
-do_premature_disconnect();
-tagify_filecache($dbcon);
+if($perform_disconnect_trick)
+{
+    do_premature_disconnect();
+    tagify_filecache($dbcon);
+}
 exit(0);
 ?>
