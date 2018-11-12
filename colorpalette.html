@@ -1,0 +1,67 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta http-equiv="Content-Type" content="text/html; charset=utf-8" />
+<title>Color palette</title>
+<style type="text/css">
+body {
+  color: #1e2a09;
+}
+div {
+  font-family: Sans, Sans-serif;
+  width: 400px;
+  height: 25px;
+  padding: 7px 0px 0px 50px;
+  background-image: linear-gradient(to right, rgba(255,255,255,1) 0%, rgba(255,255,255, 0.5) 14%, rgba(255,255,255,0) 33%, rgba(255,255,255,0) 47%, rgba(255,255,255,1) 47.2%, rgba(255,255,255,1) 49.9%, rgba(0,0,0,1) 50.1%, rgba(0,0,0,1) 52.8%, rgba(0,0,0,0) 53%, rgba(0,0,0,0) 66%, rgba(0,0,0,0.5) 83%, rgba(0,0,0,1) 100%);
+  margin: 10px 0px 10px 0px;
+}
+.dark {
+  color: #d5edab;
+}
+</style>
+<script type="text/javascript">
+var colorArray = [
+  "#a0d642", "primary color",
+  "#d5edab", "bright",
+  "#3c5412", "dark",
+  "#1e2a09", "blackish color",
+  "#94a970", "desaturized",
+  "#d6c243", "analogous color 1",
+  "#afa56a", "analogous color 1 desaturized",
+  "#ede4ab", "analogous color 1 bright",
+  "#928320", "analogous color 1 dark",
+  "#56d642", "analogous color 2",
+  "#77a970", "analogous color 2 desaturized",
+  "#c7f1c0", "analogous color 2 bright",
+  "#297d1c", "analogous color 2 dark",
+  "#fddcc9", "pig color"
+];
+function init()
+{
+  var mainEle = document.getElementsByTagName("div")[0];
+  for(var i = 0; i < colorArray.length; i+=2)
+  {
+    if(0 == i)
+    {
+      mainEle.style.backgroundColor = colorArray[i];
+      mainEle.appendChild(document.createTextNode(colorArray[i + 1]));
+    }
+    var newEle = document.createElement("div");
+    newEle.style.backgroundColor = colorArray[i];
+    if(-1 < colorArray[i + 1].indexOf("dark") ||
+       -1 < colorArray[i + 1].indexOf("black"))
+    {
+      newEle.setAttribute("class", "dark");
+    }
+    newEle.appendChild(document.createTextNode(colorArray[i] + " " + colorArray[i + 1]));
+    mainEle.appendChild(newEle);
+  }
+}
+document.addEventListener("DOMContentLoaded", init);
+</script>
+</head>
+<body>
+<div style="width: 500px; height: 600px; padding: 20px; background-image: none;">
+</div>
+</body>
+</html>

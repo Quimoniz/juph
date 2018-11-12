@@ -12,7 +12,7 @@ body {
 .multi_pane_wrapper {
   float: right;
   width: 45%;
-  background-color: #f0f0f0;
+  background-color: #d5edab;
   border-radius: 20px;
   padding: 1em;
 }
@@ -21,24 +21,27 @@ body {
   font-size: 20pt;
   letter-spacing: 1px;
   margin: 0.3em 0em 0em 0em;
+  color: #1e2a09;
   background-image: url(img/looking-glass.png);
   background-repeat: no-repeat;
-  background-position: calc(100% - 10px) 0px;
+  background-position: calc(100% - 10px) 6px;
   border-width: 4px;
   border-radius: 5px;
 }
 .search_list_wrapper {
 }
 .search_list_element {
-  border-bottom: 2px solid #e0e0e0;
-  margin: 0.4em 0em 0.4em 0em;
-  padding: 0em 0em 0.2em 0.3em;
+  border-bottom: 2px solid #3c5412;
+  margin: 0em;
+  padding: 0em 0.2em 0.2em 0.3em;
   overflow: hidden;
+  /*box-shadow: inset 0px -2px 2px 2px #9aa970;*/
+  background-image: linear-gradient(to top, #9aa970 0px, #a8bd82 3px, #d5edab 8px, #d5edab 100%);
 }
 .search_list_tag {
   font-size: 10pt;
-  background-color: #dbdbdb;
-  color: #404040;
+  background-color: #c7f1c0;
+  color: #297d1c;
   float: right;
   margin-left: 6px;
   padding: 1px 3px 1px 3px;
@@ -51,13 +54,13 @@ body {
 .search_list_count_played {
   font-size: 10pt;
   clear: both;
-  color: #606060;
+  color: #3c5412;
 }
 .search_label {
   font-size: 14pt;
 }
 .search_list_link:link, .search_list_link:visited {
-  color: #000000;
+  color: #1e2a09;
   text-decoration: none;
 }
 .paging_wrapper {
@@ -129,23 +132,24 @@ body {
   font-weight: bold;
   min-height: 20px;
   margin: 0.1em 0em 0.3em 0em;
+  color: #1e2a09;
 }
 #audio_player {
   width: 100%;
 }
 .playlist {
-  background-color: #000000;
-  color: #ffffff;
+  background-color: #d5edab;
+  color: #1e2a09;
 }
 .playlist_title {
   font-size: 16pt;
   padding: 2px 0px 3px 10px;
-  background-color: #f0f0f0;
-  color: #404040;
+  background-color: #d5edab;
+  color: #1e2a09;
   font-weight: bold;
-  border-bottom: 3px solid #808080;
-  background-image: radial-gradient(circle at 20%, #ffffff 0%, #c8c8c8 100%);
-  box-shadow: inset 0px -5px 10px 3px #c0c0c0;
+  border-bottom: 3px solid #94a970;
+  background-image: radial-gradient(circle at 20%, #d5edab 0%, #94a970 100%);
+  box-shadow: inset 0px -5px 10px 3px #94a970;
 }
 .playlist_list {
   max-height: 250px;
@@ -156,24 +160,24 @@ body {
   text-decoration: none;
 }
 .playlist_element {
-  border-bottom: 2px solid #a0a0a0;
-  background-color: #c0c0c0;
-  color: #202020;
+  border-bottom: 2px solid #3c5412;
+  background-color: #d5edab;
+  color: #1e2a09;
   overflow: hidden;
   padding: 0.15em 0em 0.45em 0.1em;
-  box-shadow: inset 0px -3px 3px 2px #808080;
+  box-shadow: inset 0px -2px 2px 2px #9aa970;
 }
 .playlist_selected_element {
-  color: #000000;
-  background-color: #ffffff;
+  color: #1e2a09;
+  background-color: #a0d642;
   box-shadow: none;
-  background-image: linear-gradient(to bottom, #ffffff 0%, #e8e8e8 80%, #a0a0a0 100%);
+  background-image: linear-gradient(to bottom, #c0e382 0%, #a0d642 80%, #3c5412 100%);
 }
 .playlist_selected_element::before {
   content: "▶ ";
 }
 .playlist_option_wrapper {
-  background-color: #808080;
+  background-color: #1e2a09;
   width: 100%;
   height: 42px;
 }
@@ -182,9 +186,9 @@ body {
   width: calc(100% / 6);
   height: 34px;
   padding: 4px;
-  background-color: #808080;
+  background-color: #1e2a09;
   text-align: center;
-  background-image: radial-gradient(ellipse at center, #000000 0%, #080808 20%, #303030 40%, #707070 80%, #b0b0b0 100%);
+/*  background-image: radial-gradient(ellipse at center, #000000 0%, #080808 20%, #303030 40%, #707070 80%, #b0b0b0 100%);*/
 /*
   border-top: 2px solid #e8e8e8;
   border-left: 2px solid #e8e8e8;
@@ -202,8 +206,8 @@ body {
 }
 .playlist_option_div:hover
 {
-  background-color: #707070;
-  background-image: radial-gradient(ellipse at center, #b0b0b0 0%, #707070 20%, #303030 40%, #080808 80%, #000000 100%);
+  background-color: #94a970;
+  /*background-image: radial-gradient(ellipse at center, #b0b0b0 0%, #707070 20%, #303030 40%, #080808 80%, #000000 100%);*/
 }
 .playlist_option_div_selected {
   border: 4px solid #ffffff;
@@ -214,9 +218,9 @@ body {
 .contextmenu_wrapper {
   font-family: Sans, Sans-Serif, Arial;
   width: 8em;
-  border: 3px solid #808080;
+  border: 3px solid #928320;
   border-radius: 10px;
-  background-color: #ffffff;
+  background-color: #ede4ab;
   overflow: hidden;
   border-top-right-radius: 0px;
 }
@@ -224,11 +228,11 @@ body {
   float: right;
   width: 22px;
   height: 27px;
-  background-color: #d0d0d0;
+  background-color: #afa56a;
   cursor: pointer;
   font-size: 21px;
   padding: 0px 0px 0px 5px;
-  border: 2px solid #808080;
+  border: 2px solid #928320;
   border-right: none;
   border-top: none;
 }
@@ -236,15 +240,22 @@ body {
   transform: scale(1.2);
 }
 .contextmenu_item {
-  background-color: #f0f0f0;
+  background-color: #ede4ab;
   padding: 0.3em;
   margin: 0em 0em 0.2em 0em;
-  border-radius: 10px;
   cursor: pointer;
 }
+.contextmenu_item:first-child {
+  border-top-left-radius: 10px;
+  border-top-right-radius: 10px;
+}
+.contextmenu_item:last-child {
+  border-bottom-left-radius: 10px;
+  border-bottom-right-radius: 10px;
+}
 .contextmenu_item:hover {
-  background-color: #505050;
-  color: #f0f0f0;
+  background-color: #d6c243;
+  /*color: #f0f0f0;*/
 }
 .overlay_veil {
   position: fixed;
@@ -290,6 +301,15 @@ body {
 }
 .configuration_button {
   margin: 5px;
+  background-color: #a0d642;
+  color: #1e2a09;
+  padding: 4px;
+  border: 1px solid #a0d542;
+  border-radius: 4px;
+  background-image: linear-gradient(to bottom, #c0e382 0%, #a0d642 70%, #86bc29 100%);
+}
+.configuration_button:hover {
+  background-image: linear-gradient(to bottom, #eaf6d5 0%, #cae896 70%, #b5df6d 100%);
 }
 .menu_search_list {
   list-style-type: none;
@@ -333,27 +353,32 @@ body {
 }
 .keyboard_key_letter, .keyboard_key_enter, .keyboard_key_shift, .keyboard_key_space {
   float: left;
-  border: 1px solid #d0d0d0;
-  background-color: #f0f0f0;
+  border: 1px solid #928320;
+  background-color: #ede4ab;
+  color: #928320;
   text-align: center;
   font-size: 16pt;
+  padding: 6px 0px 0px 0px;
+}
+.keyboard_key_letter:hover, .keyboard_key_enter:hover, .keyboard_key_shift:hover, .keyboard_key_space:hover {
+  box-shadow: inset 0px 0px 2px 1px #928320, 0px 0px 4px 0px #928320;
 }
 .keyboard_key_letter {
   width: calc(10% - 2px);
-  height: 38px;
+  height: 32px;
   /* TODO: do some fancy gradient stuff for the background later */
 }
 .keyboard_key_enter {
   width: calc(16.66% - 2px);
-  height: 158px;
+  height: 152px;
 }
 .keyboard_key_shift {
   width: calc(30% - 2px);
-  height: 38px;
+  height: 32px;
 }
 .keyboard_key_space {
   width: calc(70% - 2px);
-  height: 38px;
+  height: 32px;
 }
 .radio_play_button {
   width: 100px;
