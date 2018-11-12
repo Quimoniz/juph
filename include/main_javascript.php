@@ -51,6 +51,7 @@ var MultiPane = {
   optionsWrapper: undefined,
   populatorArr: new Array(),
   populatorNames: new Array(),
+  populatorIcons: new Array(),
   selectedIndex: -1,
   curPopulator: undefined,
   init: function() {
@@ -74,6 +75,7 @@ var MultiPane = {
     MultiPane.populatorNames.push(populatorName);
     MultiPane.populatorArr.push(curPop);
 
+    var elementDiv = advancedCreateElement("div", MultiPane.optionsWrapper, "options_element");
     var newImg = document.createElement("img");
     newImg.setAttribute("width", curPop.icon.width);
     newImg.setAttribute("height", curPop.icon.height);
@@ -81,8 +83,8 @@ var MultiPane = {
     if(curPop.icon.idName) newImg.setAttribute("id", curPop.icon.idName);
     if(curPop.icon.className) newImg.setAttribute("class", curPop.icon.className);
     if(curPop.icon.title) newImg.setAttribute("title", curPop.icon.title);
-    newImg = MultiPane.optionsWrapper.appendChild(newImg);
-    advancedCreateElement("br", MultiPane.optionsWrapper, undefined, undefined, undefined);
+    newImg = elementDiv.appendChild(newImg);
+    MultiPane.populatorIcons.push(elementDiv);
 
     newImg.addEventListener("click", function(selectedName) { return function() { MultiPane.select(selectedName) }; }(populatorName));
 
@@ -101,10 +103,23 @@ var MultiPane = {
         break;
       }
     }
+    if(foundIndex != MultiPane.selectedIndex)
+    {
+      if(-1 < MultiPane.selectedIndex)
+      {
+        MultiPane.populatorIcons[MultiPane.selectedIndex].setAttribute("class", "options_element");
+      }
+      if(-1 < foundIndex)
+      {
+        MultiPane.populatorIcons[foundIndex].setAttribute("class", "options_element options_element_selected");
+      }
+    }
     MultiPane.clear();
     if(-1 < foundIndex && foundIndex < MultiPane.populatorArr.length)
     {
+      advancedCreateElement("div", MultiPane.wrapper, "multi_pane_heading", undefined, selectedName);
       MultiPane.curPopulator = MultiPane.populatorArr[foundIndex];
+      MultiPane.selectedIndex = foundIndex;
       MultiPane.curPopulator.init(MultiPane.wrapper);
     }
   }
@@ -137,7 +152,6 @@ function ConfigurationPane()
   };
   this.init = function(parentEle) {
     myPane = advancedCreateElement("div", parentEle, "configuration_wrapper");
-    var titleEle = advancedCreateElement("div", myPane, "configuration_title", undefined, "Configuration");
     var logOutButton = advancedCreateElement("button", myPane, "configuration_button", undefined, "Log Out");
     logOutButton.addEventListener("click", doLogOut);
     var rescanButton = advancedCreateElement("button", myPane, "configuration_button", undefined, "Rescan all files");
@@ -160,8 +174,6 @@ function SearchPane()
   this.letterEles = new Array();
   this.lettersLowercase = false;
   this.init = function(parentEle) {
-    var labelEle = advancedCreateElement("label", parentEle, "search_label", undefined, "Search:");
-    labelEle.setAttribute("for", "search_input");
     this.inputEle = advancedCreateElement("input", parentEle, "search_input", undefined, undefined);
     this.inputEle.setAttribute("id", "search_input");
     this.inputEle.setAttribute("size", "20");
