@@ -190,10 +190,11 @@ function SearchPane()
     {
       return;
     }
-    var keys = [ ['Q', 'W', 'E', 'R', 'T', 'Y', 'U', 'I',
-                'O', 'P'], ['A', 'S', 'D', 'F', 'G', 'H',
-                'J', 'K', 'L', ':'], ['Z', 'X', 'C', 'V', 'B',
-                'N', 'M', '.', '-', '_']];
+    var keys = [ ['1', '2', '3', '4', '5', '6', '7', '8',
+                  '9', '0'], ['Q', 'W', 'E', 'R', 'T', 'Y',
+                  'U', 'I', 'O', 'P'], ['A', 'S', 'D', 'F',
+                  'G', 'H', 'J', 'K', 'L', ':'], ['Z', 'X',
+                  'C', 'V', 'B', 'N', 'M', '.', '-', '_']];
     var keyboardMain = document.createElement("div");
     keyboardMain.setAttribute("class", "keyboard_main_wrapper");
     var keyboardLetters = advancedCreateElement("div", keyboardMain, "keyboard_letter_wrapper");
@@ -208,6 +209,7 @@ function SearchPane()
     }
     advancedCreateElement("div", keyboardLetters, "keyboard_key_shift", undefined, "⇫").addEventListener("click", function(selfReference, keyboardMain, key) { return function() { selfReference.keyClicked(keyboardMain, key); }; }(this, keyboardMain, "shift"));
     advancedCreateElement("div", keyboardLetters, "keyboard_key_space", undefined, " ").addEventListener("click", function(selfReference, keyboardMain, key) { return function() { selfReference.keyClicked(keyboardMain, key); }; }(this, keyboardMain, " "));
+    advancedCreateElement("div", keyboardMain, "keyboard_key_backspace", undefined, "←").addEventListener("click", function(selfReference, keyboardMain, key) { return function() { selfReference.keyClicked(keyboardMain, key); }; }(this, keyboardMain, "backspace"));
     advancedCreateElement("div", keyboardMain, "keyboard_key_enter", undefined, "↵").addEventListener("click", function(selfReference, keyboardMain, key) { return function() { selfReference.keyClicked(keyboardMain, key); }; }(this, keyboardMain, "\n"));
     this.keyboardEle = BODY.appendChild(keyboardMain);
   };
@@ -224,6 +226,14 @@ function SearchPane()
         } else {
           this.letterEles[i].firstChild.nodeValue = this.letterEles[i].firstChild.nodeValue.toUpperCase();
         }
+      }
+    } else if("backspace" == key)
+    {
+      var str = this.inputEle.value;
+      if(0 < str.length)
+      {
+        str = str.substring(0, str.length - 1);
+        this.inputEle.value = str;
       }
     } else if("\n" == key)
     {

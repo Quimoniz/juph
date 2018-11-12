@@ -345,13 +345,13 @@ body {
   left: 20px;
   top: 10px;
   width: 50%;
-  height: 160px;
+  height: 200px;
  }
 .keyboard_letter_wrapper {
   float: left;
   width: 83.33%;
 }
-.keyboard_key_letter, .keyboard_key_enter, .keyboard_key_shift, .keyboard_key_space {
+.keyboard_key_letter, .keyboard_key_enter, .keyboard_key_shift, .keyboard_key_space, .keyboard_key_backspace {
   float: left;
   border: 1px solid #928320;
   background-color: #ede4ab;
@@ -360,13 +360,23 @@ body {
   font-size: 16pt;
   padding: 6px 0px 0px 0px;
 }
-.keyboard_key_letter:hover, .keyboard_key_enter:hover, .keyboard_key_shift:hover, .keyboard_key_space:hover {
+.keyboard_key_letter:hover, .keyboard_key_enter:hover, .keyboard_key_shift:hover, .keyboard_key_space:hover, .keyboard_key_backspace:hover {
   box-shadow: inset 0px 0px 2px 1px #928320, 0px 0px 4px 0px #928320;
+}
+.keyboard_key_letter:active {
+  transform: scale(1.2);
+}
+.keyboard_key_enter:active, .keyboard_key_shift:active, .keyboard_key_space:active, .keyboard_key_backspace:active {
+  transform: scale(1.1);
 }
 .keyboard_key_letter {
   width: calc(10% - 2px);
   height: 32px;
   /* TODO: do some fancy gradient stuff for the background later */
+}
+.keyboard_key_backspace {
+  width: calc(16.66% - 2px);
+  height: 32px;
 }
 .keyboard_key_enter {
   width: calc(16.66% - 2px);
