@@ -145,7 +145,7 @@ function ConfigurationPane()
   this.icon = {
     src: "img/gear.png",
     width: 50,
-    height: 51,
+    height: 50,
     idName: "img_gear",
     className: undefined,
     title: "Configuration Pane"

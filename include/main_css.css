@@ -307,11 +307,8 @@ body {
 }
 @keyframes turn_gear {
   0%   { transform: rotate(0); }
-  20%  { transform: rotate(60deg); }
-  40%  { transform: rotate(120deg); }
-  60%  { transform: rotate(180deg); }
-  80%  { transform: rotate(240deg); }
-  100% { transform: rotate(300deg); }
+  50%  { transform: rotate(180deg); }
+  100% { transform: rotate(360deg); }
 }
 .configuration_title {
   font-size: 20pt;
