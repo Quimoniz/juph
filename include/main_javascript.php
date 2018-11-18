@@ -11,7 +11,6 @@ var BODY;
 var contextMenu;
 var sessionId;
 var userAgent;
-var secondPane;
 var ajax;
 var currentTracklist = undefined;
 function init()
@@ -1195,8 +1194,27 @@ function Tracklist(methodName, methodParam, tracklistJSON, requestSendedTime)
   this.assumeSearchList = function()
   {
     removeChilds(searchListWrapper);
-    var searchDescription = "" + this.matchCount + " result" + (1 != this.matchCount ? "s" : "") + " for \"" + this.getParam + "\"";
-    var searchListDescriptionEle = advancedCreateElement("div", searchListWrapper, "search_list_description", undefined, searchDescription);
+    var searchDescription = "";
+    if("matching_tracks" == this.getMethod)
+    {
+      searchDescription = "" + this.matchCount + " result" + (1 != this.matchCount ? "s" : "") + " for \"" + this.getParam + "\"";
+    } else if("popular" == this.getMethod || "newest" == this.getMethod)
+    {
+      if("playlist" == this.getParam)
+      {
+        searchDescription = "" + this.matchCount + " playlist" + ( 1!= this.matchCount ? "s" : "") + " found";
+      } else if("file" == this.getParam)
+      {
+        searchDescription = "" + this.matchCount + " track" + ( 1!= this.matchCount ? "s" : "") + " found";
+      } else if("all" == this.getParam)
+      {
+        searchDescription = "" + this.matchCount + " match" + ( 1!= this.matchCount ? "es" : "") + " found";
+      }
+    }
+    if(0 < searchDescription.length)
+    {
+      advancedCreateElement("div", searchListWrapper, "search_list_description", undefined, searchDescription);
+    }
     if(this.matchCount > this.pageLimit)
     {
       var curPage = Math.floor(this.pageOffset / this.pageLimit);

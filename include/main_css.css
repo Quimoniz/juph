@@ -31,7 +31,7 @@ body {
   width: calc(100% - 1em);
   font-size: 20pt;
   letter-spacing: 1px;
-  margin: 0.3em 0.5em 0.5em 0.5em;
+  margin: 0.3em 0.5em 0em 0.5em;
   color: #1e2a09;
   background-image: url(img/looking-glass.png);
   background-repeat: no-repeat;
@@ -50,6 +50,9 @@ body {
   overflow: hidden;
   /*box-shadow: inset 0px -2px 2px 2px #9aa970;*/
   background-image: linear-gradient(to top, #9aa970 0px, #a8bd82 3px, #d5edab 8px, #d5edab 100%);
+}
+.search_list_link:first-child .search_list_element {
+  margin: 0.6em 0em 0em 0em;
 }
 .search_list_wrapper .search_list_link:last-child .search_list_element {
   border-bottom-left-radius: 10px;
@@ -82,7 +85,7 @@ body {
   text-decoration: none;
 }
 .search_list_description {
-  padding: 0em 0em 0.5em 0em;
+  padding: 0.1em 0em 0.1em 0em;
   color: #3c5412;
   text-align: center;
 }
@@ -159,6 +162,8 @@ body {
 }
 #audio_player {
   width: 100%;
+  border-top-left-radius: 20px;
+  border-top-right-radius: 20px;
 }
 .playlist {
   background-color: #d5edab;
@@ -185,7 +190,7 @@ body {
 .playlist_element {
   border-bottom: 2px solid #3c5412;
   background-color: #d5edab;
-  color: #1e2a09;
+  color: #3c5412;
   overflow: hidden;
   padding: 0.15em 0em 0.45em 0.5em;
   box-shadow: inset 0px -2px 2px 2px #9aa970;
@@ -233,8 +238,9 @@ body {
   /*background-image: radial-gradient(ellipse at center, #b0b0b0 0%, #707070 20%, #303030 40%, #080808 80%, #000000 100%);*/
 }
 .playlist_option_div_selected {
-  border: 4px solid #ffffff;
-  padding: 0px;
+  background-image: url(img/bg-stripes.gif);
+  padding: 3px;
+  border: 1px solid #ffffff;
 }
 .playlist_option_img {
 }
