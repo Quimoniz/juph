@@ -1,5 +1,6 @@
 body {
   font-family: Verdana, Sans, Sans-Serif;
+  padding: 0px;
 }
 .content_wrapper {
   margin: 0px auto 0px auto;
@@ -357,16 +358,13 @@ body {
   word-spacing: 1em;
 }
 .bugreport_wrapper {
-  position: absolute;
-  right: -37px;
-  bottom: 46px;
   word-wrap: nowrap;
-  /*width: 35px;*/
+  float: right;
   overflow: visible;
   border: 1px solid #b0b0b0;
   padding: 2px;
+  height: 2em;
   background-image: linear-gradient(to bottom, #f0f0f0 0%, #e0e0e0 100%);
-  transform: rotate(-90deg);
 }
 .bugreport_link:link, .bugreport_link:visited {
   text-decoration: none;
@@ -429,4 +427,15 @@ body {
   height: 100px;
   border: 1px solid #696a6a;
   border-radius: 10px;
+}
+.footer_wrapper {
+  position: fixed;
+  bottom: 0px;
+  left: calc(5% + 7px);
+  width: calc(90% - 14px);
+  background-color: #d5edab;
+  height: calc(2em + 6px);
+}
+.footer_status {
+  float: left;
 }

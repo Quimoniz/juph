@@ -17,6 +17,11 @@
 </div>
 <div class="options_wrapper">
 </div>
+<footer class="footer_wrapper">
+<div class="footer_status">
+&nbsp;
+</div>
 <div class="bugreport_wrapper">
 <a class="bugreport_link" target="_blank" href="http://resonanzkaska.de/bugreport/?subject=juph">Bugreport</a>
 </div>
+</footer>
