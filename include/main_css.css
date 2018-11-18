@@ -18,9 +18,11 @@ body {
 .multi_pane_heading {
   background-color: #a0d641;
   color: #1e2a09;
-  font-size: 20pt;
+  font-size: 18pt;
   text-align: center;
   font-weight: bold;
+  height: 1.3em;
+  padding: 0.1em 0em 0em 0em;
   border-bottom: 2px solid #3c5412;
   border-top-left-radius: 20px;
   border-top-right-radius: 20px;
@@ -79,30 +81,34 @@ body {
   color: #1e2a09;
   text-decoration: none;
 }
+.search_list_description {
+  padding: 0em 0em 0.5em 0em;
+  color: #3c5412;
+  text-align: center;
+}
 .paging_wrapper {
   font-family: Sans, Sans-Serif, Arial;
   /*margin: 0.3em 0em 0.3em 0em;*/
+  text-align: center;
 }
 .paging_filler {
-  display: block;
-  float: left;
+  display: inline-block;
   margin: 0.5em 0em 0em 0em;
   text-align: center;
 }
 .paging_button {
-  display: block;
-  float: left;
+  display: inline-block;
   min-width: 1.5em;
-  background-color: #fbfbfb;
+  background-color: #a0d642;
   /*margin: 0em 0.2em 0em 0.2em;*/
   padding: 0.2em;
   text-align: center;
-  color: #303030;
+  color: #3c5412;
   font-weight: normal;
   font-size: 14pt;
   margin: 0.2em 0em 0.2em 0em;
-  border-left:  3px solid #f0f0f0;
-  border-right: 3px solid #f0f0f0;
+  border-left:  3px solid #3c5412;
+  border-right: 3px solid #3c5412;
 }
 .paging_button:hover
 {
@@ -117,18 +123,19 @@ body {
   color: #000000;
   font-weight: bold;
   margin: 0em;
+  border: none;
   padding: 0.4em 0.2em 0.4em 0.2em;
 }
 .paging_button_first {
-  display: block;
+  display: inline-block;
   margin-left: 0em;
-  border-left: none;
+  border: none;
   border-top-left-radius: 9px;
   border-bottom-left-radius: 9px;
 }
 .paging_button_last {
-  display: block;
-  border-right: none;
+  display: inline-block;
+  border: none;
   border-top-right-radius: 9px;
   border-bottom-right-radius: 9px;
 }

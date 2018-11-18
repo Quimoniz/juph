@@ -34,7 +34,7 @@ function init()
     return Math.max(BODY.scrollHeight, BODY.offsetHeight,
                     html.clientHeight, html.scrollHeight, html.offsetHeight);
   }
-  sessionId = <?php echo "\"" . js_escape($SESSION_ID) . "\";";  ?>
+  sessionId = <?php echo "\"" . js_escape($SESSION_ID) . "\";";  ?>;
   userAgent = <?php echo "\"" . js_escape($_SERVER['HTTP_USER_AGENT']) . "\""; ?>;
   juffImg.init();
   MultiPane.init();
@@ -1195,6 +1195,8 @@ function Tracklist(methodName, methodParam, tracklistJSON, requestSendedTime)
   this.assumeSearchList = function()
   {
     removeChilds(searchListWrapper);
+    var searchDescription = "" + this.matchCount + " result" + (1 != this.matchCount ? "s" : "") + " for \"" + this.getParam + "\"";
+    var searchListDescriptionEle = advancedCreateElement("div", searchListWrapper, "search_list_description", undefined, searchDescription);
     if(this.matchCount > this.pageLimit)
     {
       var curPage = Math.floor(this.pageOffset / this.pageLimit);
