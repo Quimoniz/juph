@@ -26,10 +26,10 @@ body {
   border-top-right-radius: 20px;
 }
 .search_input {
-  width: 100%;
+  width: calc(100% - 1em);
   font-size: 20pt;
   letter-spacing: 1px;
-  margin: 0.3em 0em 0.5em 0em;
+  margin: 0.3em 0.5em 0.5em 0.5em;
   color: #1e2a09;
   background-image: url(img/looking-glass.png);
   background-repeat: no-repeat;
@@ -37,7 +37,9 @@ body {
   border-width: 4px;
   border-radius: 5px;
 }
-.search_list_wrapper {
+.search_list_wrapper, .configuration_wrapper, .menu_pane_wrapper, .radio_pane_wrapper {
+  width: calc(100% - 1em);
+  margin: 0em 0.5em 0em 0.5em;
 }
 .search_list_element {
   border-bottom: 2px solid #3c5412;
@@ -46,6 +48,11 @@ body {
   overflow: hidden;
   /*box-shadow: inset 0px -2px 2px 2px #9aa970;*/
   background-image: linear-gradient(to top, #9aa970 0px, #a8bd82 3px, #d5edab 8px, #d5edab 100%);
+}
+.search_list_wrapper .search_list_link:last-child .search_list_element {
+  border-bottom-left-radius: 10px;
+  border-bottom-right-radius: 10px;
+  border-bottom: none;
 }
 .search_list_tag {
   font-size: 10pt;
@@ -173,7 +180,7 @@ body {
   background-color: #d5edab;
   color: #1e2a09;
   overflow: hidden;
-  padding: 0.15em 0em 0.45em 0.1em;
+  padding: 0.15em 0em 0.45em 0.5em;
   box-shadow: inset 0px -2px 2px 2px #9aa970;
 }
 .playlist_selected_element {

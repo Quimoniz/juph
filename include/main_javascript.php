@@ -281,8 +281,9 @@ function RadioPane()
     title: "Radio Pane"
   };
   this.init = function(parentEle) {
-    advancedCreateElement("p", parentEle, undefined, undefined, "The programmer has been too lazy to program this feature yet.");
-    advancedCreateElement("div", parentEle, "radio_play_button", undefined, "Play Klassik Radio").addEventListener("click", function() {
+    var radioWrapper = advancedCreateElement("div", parentEle, "radio_pane_wrapper");
+    advancedCreateElement("p", radioWrapper, undefined, undefined, "The programmer has been too lazy to program this feature yet.");
+    advancedCreateElement("div", radioWrapper, "radio_play_button", undefined, "Play Klassik Radio").addEventListener("click", function() {
         audioPlayer.pause();
         audioPlayer.setAttribute("src", "https://klassikr.streamabc.net/klassikradio-simulcast-mp3-mq?sABC=5oq1r14o%230%234ro365069486n29r5oo7n8ps8456q010%237Qvtvgny");
         audioPlayer.play();
@@ -301,7 +302,8 @@ function MenuPane()
     title: "Menu Pane"
   };
   this.init = function(parentEle) {
-    var ulEle = advancedCreateElement("ul", parentEle, "menu_search_list");
+    var menuWrapper = advancedCreateElement("div", parentEle, "menu_pane_wrapper");
+    var ulEle = advancedCreateElement("ul", menuWrapper, "menu_search_list");
     var searchOptions = [
         ["Popular", "popular", "all"],
         ["Popular Playlists", "popular", "playlist"],
