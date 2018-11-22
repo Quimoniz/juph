@@ -5,6 +5,8 @@ body {
 .content_wrapper {
   margin: 0px auto 0px auto;
   width: 90%;
+  height: calc(100% - 2em - 6px);
+  overflow: auto;
 }
 .left_wrapper {
   float: left;
@@ -15,6 +17,8 @@ body {
   width: 45%;
   background-color: #d5edab;
   border-radius: 20px;
+  border-bottom-left-radius: 0px;
+  border-bottom-right-radius: 0px;
 }
 .multi_pane_heading {
   background-color: #a0d641;
@@ -56,8 +60,6 @@ body {
   margin: 0.6em 0em 0em 0em;
 }
 .search_list_wrapper .search_list_link:last-child .search_list_element {
-  border-bottom-left-radius: 10px;
-  border-bottom-right-radius: 10px;
   border-bottom: none;
 }
 .search_list_tag {
@@ -173,12 +175,10 @@ body {
 .playlist_title {
   font-size: 16pt;
   padding: 2px 0px 3px 10px;
-  background-color: #d5edab;
+  background-color: #a0d642;
   color: #1e2a09;
   font-weight: bold;
   border-bottom: 3px solid #94a970;
-  background-image: radial-gradient(circle at 20%, #d5edab 0%, #94a970 100%);
-  box-shadow: inset 0px -5px 10px 3px #94a970;
 }
 .playlist_list {
   max-height: 250px;
