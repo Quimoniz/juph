@@ -1270,6 +1270,7 @@ function Tracklist(methodName, methodParam, tracklistJSON, requestSendedTime)
             curPageNumEle.setAttribute("href", "javascript:fetch_tracks('" + this.getMethod + "', '" + this.getParam + "'," + showPages[i] * this.pageLimit + ")");
           }
           curPageNumEle.appendChild(document.createTextNode("" + (showPages[i] + 1)));
+          curPageNumEle.setAttribute("title", "Show page " + (showPages[i] + 1));
           pageNumEle.appendChild(curPageNumEle);
         }
         var trailingEle = document.createElement("span");
