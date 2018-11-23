@@ -1060,12 +1060,27 @@ function TrackClass(trackId, trackType, trackName, trackCountPlayed, trackTags)
     this.beautifiedName = "PL: " + this.name;
   }
 }
-
+function getOffsetOnPage(element) {
+  var pos = [ element.offsetLeft, element.offsetTop ];
+  var curEle = element.parentNode;
+  while(curEle.parentNode)
+  {
+    pos[0] -= curEle.scrollLeft;
+    pos[1] -= curEle.scrollTop;
+    curEle = curEle.parentNode;
+  }
+  return pos;
+}
 function ContextMenuClass(posX, posY, parentNode, optionsArr)
 {
   this.menuEle;
   this.itemsArr;
   this.overlayArr;
+  //assume the parentNode if the parentNode has a CSS class with "element"
+  if(-1 < parentNode.parentNode.className.indexOf("element"))
+  {
+    parentNode = parentNode.parentNode;
+  }
   if(contextMenu)
   {
     if(contextMenu.selfDestruct) contextMenu.selfDestruct();
@@ -1095,13 +1110,19 @@ function ContextMenuClass(posX, posY, parentNode, optionsArr)
     /* TODO: if parentNode is given, paint a veil around the parentNode
      */
     this.overlayArr = new Array();
-    this.overlayArr.push(document.createElement("div"));
-    this.overlayArr[0].setAttribute("class", "overlay_veil");
-    this.overlayArr[0].style.position = "absolute";
-    this.overlayArr[0].style.left=0;
-    this.overlayArr[0].style.top =0;
-    this.overlayArr[0] = BODY.appendChild(this.overlayArr[0]);
-    this.overlayArr[0].addEventListener("click", function() {if(contextMenu && contextMenu.selfDestruct) contextMenu.selfDestruct();});
+
+    var boundingRect = getOffsetOnPage(parentNode);
+    boundingRect.push(parentNode.offsetWidth);
+    boundingRect.push(parentNode.offsetHeight);
+    var veilGenerator = function(curRect) {
+        var curVeil = advancedCreateElement("div", BODY, "overlay_veil", "color: white; position: absolute; top: " + curRect[1] + "px; left: " + curRect[0] + "px; word-wrap: no-wrap; width: " + curRect[2] + "px; height: " + curRect[3] + "px;");
+        curVeil.addEventListener("click", function() {if(contextMenu && contextMenu.selfDestruct) contextMenu.selfDestruct();});
+        contextMenu.overlayArr.push(curVeil);
+    };
+    veilGenerator([0,0,window.innerWidth, boundingRect[1]]);
+    veilGenerator([0,boundingRect[1] + boundingRect[3],window.innerWidth, window.innerHeight - (boundingRect[1] + boundingRect[3])]);
+    veilGenerator([0,boundingRect[1],boundingRect[0], boundingRect[3]]);
+    veilGenerator([boundingRect[0] + boundingRect[2],boundingRect[1],window.innerWidth - (boundingRect[0] + boundingRect[2]), boundingRect[3]]);
   }
   this.menuEle = document.createElement("div");
   this.menuEle.setAttribute("class", "contextmenu_wrapper");
