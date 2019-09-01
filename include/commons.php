@@ -57,7 +57,7 @@ function tagify_filecache($dbcon)
     }
     $dbcon->autocommit(FALSE);
     $dbcon->begin_transaction();
-    $dbcon->query('CREATE TEMPORARY TABLE `tagification_table` AS SELECT `id`,`path_str` FROM `filecache` WHERE `tagified`=\'N\' ORDER BY `id` ASC LIMIT 10'); /* TODO: make this limit '10' configurable somewhere somehow */
+    $dbcon->query('CREATE TEMPORARY TABLE `tagification_table` AS SELECT `id`,`path_str` FROM `filecache` WHERE `tagified`=\'N\' ORDER BY `id` ASC LIMIT 50'); /* TODO: make this limit '50' configurable somewhere somehow */
     $dbcon->query('UPDATE `filecache` SET `tagified`=\'Y\' WHERE `id`=ANY(SELECT `id` FROM `tagification_table`)');
     $untagified_result = $dbcon->query('SELECT * FROM `tagification_table`');
     $dbcon->commit();
@@ -75,23 +75,7 @@ function fileheader_tagification($dbcon, $untagified)
     global $CONFIG_VAR;
     $cur_row = false;
     $i = 0;
-    $filename_string = "";
-    while($cur_row = $untagified->fetch_assoc())
-    {
-        $filename_string .= $CONFIG_VAR['MUSIC_DIR_ROOT'] . '/' . $cur_row['path_str'];
-        $filename_string .= '\\0';
-        $i++;
-    }
-    $music_dir_root_strlen = strlen($CONFIG_VAR['MUSIC_DIR_ROOT'] . '/');
-    //$untagified->data_seek(0);
-    //xargs -0 /usr/share/mplayer/midentify.sh 2>&1 | 
-    $midentify_cmdline = '/bin/bash -c "/usr/bin/printf \\"' . $filename_string . '\\" | xargs -0 /usr/share/mplayer/midentify.sh 2>&1 > audio-report.txt"';
-    exec($midentify_cmdline);
-file_put_contents('midentify_parameters.txt', $midentify_cmdline);
-    $audio_headers = file_get_contents('audio-report.txt');
-file_put_contents('audio_headers_variable.txt', $audio_headers);
-    $untagified->data_seek(0);
-    $filecache_updates = '';
+    $cur_filename;
     $tag_names_array = array('ALBUM' => array(),
                              'ARTIST' => array(),
                              'GENRE' => array(),
@@ -104,62 +88,45 @@ file_put_contents('audio_headers_variable.txt', $audio_headers);
                                     'YEAR' => array(),
                                     'CODEC' => array(),
                                     'FORMAT' => array());
-    $blob_offset = 0;
-    $cur_chunk_pos = 0;
-    $next_chunk_pos = strpos($audio_headers, "ID_AUDIO_ID=0\n", 0);
-    /* go through the raw output of mplayer's midentify and extract
-     * the chunks of information pertaining to each file */
-$filename_comparison_str = '';
-    while(FALSE !== $next_chunk_pos && $cur_row = $untagified->fetch_assoc())
+    $filecache_updates = '';
+    require_once('lib/getid3/getid3/getid3.php');
+    $getID3 = new getID3;
+$all_keys_values = '';
+    while($cur_row = $untagified->fetch_assoc())
     {
+        $cur_filepath = $CONFIG_VAR['MUSIC_DIR_ROOT'] . '/' . $cur_row['path_str'];
+        $i++;
         $cur_id = $cur_row['id'];
-        $cur_filepath = $cur_row['path_str'];
-        $cur_chunk_pos = $next_chunk_pos;
-        if($cur_chunk_pos)
+        $cur_fileinfo = $getID3->analyze($cur_filepath);
+        getid3_lib::CopyTagsToComments($cur_fileinfo);
+        if(!isset($cur_fileinfo['mime_type']))
         {
-            $blob_offset = $cur_chunk_pos;
+            continue;
         }
-        $next_chunk_pos = strpos($audio_headers, "\nID_AUDIO_ID=0\n", $blob_offset + 13);
-        $cur_chunk_str = "";
-        if($next_chunk_pos)
+        $cur_mimetypes = explode('/', $cur_fileinfo['mime_type']);
+        if(0 != strcmp('audio', $cur_mimetypes[0])
+        && 0 != strcmp('video', $cur_mimetypes[0]))
         {
-            $cur_chunk_str = substr($audio_headers, $cur_chunk_pos, $next_chunk_pos - $cur_chunk_pos);
-        } else
-        {
-            $cur_chunk_str = substr($audio_headers, $cur_chunk_pos);
+            continue;
         }
-        $cur_filename_pos = strpos($cur_chunk_str, "\nID_FILENAME=");
-        $extracted_filename = FALSE;
-        if($cur_filename_pos)
+        
+        /* TODO: assign to variables and execute these */
+        $filecache_updates .= generate_file_updates($dbcon, $cur_id, $cur_fileinfo);
+        $found_tags = find_out_new_tag_associations($cur_fileinfo);
+        foreach($found_tags as $tag_key => $tag_value)
         {
-            $next_newline = strpos($cur_chunk_str, "\n", $cur_filename_pos + 13);
-            if($next_newline)
-            {
-                $extracted_filename = substr($cur_chunk_str, $cur_filename_pos + 13, $next_newline - $cur_filename_pos - 13);
-                $extracted_filename = str_replace("\\", "", $extracted_filename);
-                $extracted_filename = substr($extracted_filename, $music_dir_root_strlen);
-            }
-        }
-$filename_comparison_str .= $cur_filepath . '==' . $extracted_filename;
-$filename_comparison_str .= "\n"; 
-        if(TRUE) //$extracted_filename && 0 == strcmp($cur_filepath, $extracted_filename))
-        {
-            /* TODO: assign to variables and execute these */
-            $filecache_updates .= generate_file_updates($dbcon, $cur_id, $cur_filepath, $cur_chunk_str);
-            $found_tags = find_out_new_tag_associations($cur_chunk_str);
-            foreach($found_tags as $tag_key => $tag_value)
-            {
-               if(!isset($tag_associations_array[$tag_key][$tag_value]))
-               {
-                   $tag_associations_array[$tag_key][$tag_value] = array();
-                   $tag_names_array[$tag_key][$tag_value] = TRUE;
-               }
-               $tag_associations_array[$tag_key][$tag_value][] = $cur_id;
-            }
+$all_keys_values .= $tag_key . ':' . $tag_value;
+$all_keys_values .= "\n";
+           if(!isset($tag_associations_array[$tag_key][$tag_value]))
+           {
+               $tag_associations_array[$tag_key][$tag_value] = array();
+               $tag_names_array[$tag_key][$tag_value] = TRUE;
+           }
+           $tag_associations_array[$tag_key][$tag_value][] = $cur_id;
         }
     }
-file_put_contents('filename_comparison_str.txt', $filename_comparison_str);
 file_put_contents('sql_filecache_updates.txt', $filecache_updates);
+file_put_contents('all_keys_values.txt', $all_keys_values);
     $result_update = $dbcon->query($filecache_updates);
     $dbcon->commit();
 file_put_contents('update_response.txt', print_r($result_update, TRUE));
@@ -225,7 +192,7 @@ file_put_contents('update_response.txt', print_r($result_update, TRUE));
         $dbcon->commit();
     }
 }
-function generate_file_updates($dbcon, $file_id, $file_filepath, $mplayer_media_identification)
+function generate_file_updates($dbcon, $file_id, $file_info)
 {
     $fields = array('comment' => '',
                     'trackid' => 0,
@@ -234,28 +201,54 @@ function generate_file_updates($dbcon, $file_id, $file_filepath, $mplayer_media_
                     'bitrate' => 0,
                     'frequency' => 0,
                     'length' => 0);
-    if(strpos($mplayer_media_identification, "\nID_AUDIO_NCH=1"))
+    if(isset($file_info['audio']['channels']))
     {
-        $fields['stereo'] = 'MONO';
-    } else
-    {
-        $fields['stereo'] = 'STEREO';
+        if(1 == $file_info['audio']['channels'])
+        {
+            $fields['stereo'] = 'MONO';
+        } elseif(2 <= $file_info['audio']['channels'])
+        {
+            $fields['stereo'] = 'STEREO';
+        }
     }
-    $fields['bitrate'] = intval(extract_field_value($mplayer_media_identification, "ID_AUDIO_BITRATE", FALSE));
-    $fields['frequency'] = intval(extract_field_value($mplayer_media_identification, "ID_AUDIO_RATE", FALSE));
-    $fields['length'] = round(floatval(extract_field_value($mplayer_media_identification, "ID_LENGTH", FALSE)) * 1000);
-    $clipinfo_array = extract_clipinfo_array($mplayer_media_identification);
-    if(isset($clipinfo_array['comment']))
+    if(isset($file_info['bitrate']))
     {
-        $fields['comment'] = $clipinfo_array['comment'];
+        $fields['bitrate'] = intval($file_info['bitrate']);
     }
-    if(isset($clipinfo_array['track']))
+    if(isset($file_info['audio']['sample_rate']))
     {
-        $fields['trackid'] = intval($clipinfo_array['track']);
+        $fields['frequency'] = intval($file_info['audio']['sample_rate']);
     }
-    if(isset($clipinfo_array['title']))
+    if(isset($file_info['playtime_seconds']))
     {
-        $fields['trackname'] = $clipinfo_array['title'];
+        $fields['length'] = round(floatval($file_info['playtime_seconds']));
+    }
+    if(isset($file_info['comments']['comment']))
+    {
+        if(is_array($file_info['comments']['comment']))
+        {
+            $fields['comment'] = implode(',', $file_info['comments']['comment']);
+        } elseif(0 < strlen($file_info['comments']['comment']))
+        {
+            $fields['comment'] = $file_info['comments']['comment'];
+        }
+    }
+    if(isset($file_info['comments']['track']))
+    {
+        $fields['trackid'] = intval($file_info['comments']['track']);
+    } elseif(isset($file_info['comments']['track_number']))
+    {
+        $fields['trackid'] = intval($file_info['comments']['track_number']);
+    }
+    if(isset($file_info['comments']['title']))
+    {
+        if(is_array($file_info['comments']['title']))
+        {
+            $fields['trackname'] = implode(',', $file_info['comments']['title']);
+        } elseif(0 < strlen($file_info['comments']['title']))
+        {
+            $fields['trackname'] = $file_info['comments']['title'];
+        }
     }
     return 'UPDATE `filecache` SET `length`=' . $fields['length']
              . ', `bitrate`=' . $fields['bitrate']
@@ -335,35 +328,32 @@ function extract_field_value($search_blob, $field_name, $do_unescape = FALSE)
     }
     return FALSE;
 }
-function find_out_new_tag_associations($mplayer_media_identification)
+function find_out_new_tag_associations($file_info)
 {
-    $clipinfo_array = extract_clipinfo_array($mplayer_media_identification);
     $tag_associations = array();
-    if(isset($clipinfo_array['album']))
+    if(isset($file_info['comments']['album'][0]))
     {
-        $tag_associations['ALBUM'] = $clipinfo_array['album'];
+        $tag_associations['ALBUM'] = $file_info['comments']['album'][0];
     }
-    if(isset($clipinfo_array['artist']))
+    if(isset($file_info['comments']['artist'][0]))
     {
-        $tag_associations['ARTIST'] = $clipinfo_array['artist'];
+        $tag_associations['ARTIST'] = $file_info['comments']['artist'][0];
     }
-    if(isset($clipinfo_array['genre']))
+    if(isset($file_info['comments']['genre'][0]))
     {
-        $tag_associations['GENRE'] = $clipinfo_array['genre'];
+        $tag_associations['GENRE'] = $file_info['comments']['genre'][0];
     }
-    if(isset($clipinfo_array['year']))
+    if(isset($file_info['comments']['year'][0]))
     {
-        $tag_associations['YEAR'] = $clipinfo_array['year'];
+        $tag_associations['YEAR'] = $file_info['comments']['year'][0];
     }
-    $codec = extract_field_value($mplayer_media_identification, 'ID_AUDIO_CODEC', FALSE);
-    if($codec)
+    if(isset($file_info['audio']['codec']))
     {
-        $tag_associations['CODEC'] = $codec;
+        $tag_associations['CODEC'] = $file_info['audio']['codec'];
     }
-    $format = extract_field_value($mplayer_media_identification, 'ID_AUDIO_FORMAT', FALSE);
-    if($format)
+    if(isset($file_info['fileformat']))
     {
-        $tag_associations['FORMAT'] = $format;
+        $tag_associations['FORMAT'] = $file_info['fileformat'];
     }
     return $tag_associations;
 }
