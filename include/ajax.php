@@ -51,7 +51,7 @@ function query_db($search_str = NULL, $search_type = "all", $search_limit = 10, 
     $select_sql = '';
     if('all' == $search_type || 'file' == $search_type)
     {
-        $select_sql .= 'SELECT `id`,`path_filename` AS \'name\', \'file\' AS \'type\',`count_played` AS \'count_played\' FROM `filecache` WHERE `valid`=\'Y\'';
+        $select_sql .= 'SELECT `id`,`path_filename` AS \'name\', \'file\' AS \'type\',`count_played` AS \'count_played\', `length` AS \'length\' FROM `filecache` WHERE `valid`=\'Y\'';
         if(NULL != $search_str)
         {
             $select_sql .= ' AND (`filecache`.`path_filename` LIKE \'%' . $search_str . '%\' OR `filecache`.`id`=ANY(SELECT DISTINCT `relation_tags`.`fid` FROM `relation_tags` WHERE `relation_tags`.`tid`= ANY(SELECT `tags`.`id` FROM `tags` WHERE `tagname` LIKE \'%' . $search_str . '%\')))';
@@ -63,7 +63,7 @@ function query_db($search_str = NULL, $search_type = "all", $search_limit = 10, 
     }
     if('all' == $search_type || 'playlist' == $search_type)
     {
-        $select_sql .= 'SELECT `id`, `name`, \'playlist\' AS \'type\', `count_played` AS \'count_played\' FROM `playlists`';
+        $select_sql .= 'SELECT `id`, `name`, \'playlist\' AS \'type\', `count_played` AS \'count_played\', \'0\' AS \'length\' FROM `playlists`';
         if(NULL != $search_str)
         {
             $select_sql .= ' WHERE `name` LIKE \'%' . $search_str . '%\'';
@@ -76,7 +76,7 @@ function query_db($search_str = NULL, $search_type = "all", $search_limit = 10, 
     if($sorting_keys && 0 < count($sorting_keys))
     {
         $i = 0;
-        $valid_rows = array('id', 'name', 'type', 'count_played');
+        $valid_rows = array('id', 'name', 'type', 'count_played', 'length');
         foreach($sorting_keys as $row_name => $ascending)
         {
             if(in_array($row_name, $valid_rows))
@@ -128,6 +128,7 @@ function query_db($search_str = NULL, $search_type = "all", $search_limit = 10, 
                 'name' => $cur_row['name'],
                 'type' => $cur_row['type'],
                 'count_played' => $cur_row['count_played'],
+                'length' => $cur_row['length'],
                 'tags' => ''
               );
             if('file' == $cur_row['type'])
@@ -184,6 +185,7 @@ function print_result_json($result_obj)
                 echo "{ \"id\": " . $cur_arr['id'];
                 echo ", \"type\": \"" . $cur_arr['type'];
                 echo "\", \"countPlayed\": " . $cur_arr['count_played'];
+                echo ", \"length\": " . $cur_arr['length'];
                 echo ", \"name\": \"" . js_escape($cur_arr['name']) . "\"";
                 echo ", \"tags\": \"" . js_escape($cur_arr['tags']) . "\"}";
                 $i++;

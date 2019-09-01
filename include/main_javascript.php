@@ -1043,11 +1043,12 @@ function PlaylistClass()
   }
 }
 /* TODO: extend this by adding field 'countPlayed' */
-function TrackClass(trackId, trackType, trackName, trackCountPlayed, trackTags)
+function TrackClass(trackId, trackType, trackName, trackCountPlayed, trackTags, length)
 {
   this.id = trackId;
   this.type = trackType;
   this.countPlayed = trackCountPlayed;
+  this.length = length;
   this.tags = ("" + trackTags).split(",");
   this.name = trackName;
   this.beautifiedName = this.name;
@@ -1205,7 +1206,7 @@ function Tracklist(methodName, methodParam, tracklistJSON, requestSendedTime)
     this.pageLimit  = tracklistJSON.pageLimit;
     for(var i = 0; i < tracklistJSON.matches.length; ++i)
     {
-      this.tracks.push(new TrackClass(tracklistJSON.matches[i].id, tracklistJSON.matches[i].type, tracklistJSON.matches[i].name, tracklistJSON.matches[i].countPlayed, tracklistJSON.matches[i].tags));
+      this.tracks.push(new TrackClass(tracklistJSON.matches[i].id, tracklistJSON.matches[i].type, tracklistJSON.matches[i].name, tracklistJSON.matches[i].countPlayed, tracklistJSON.matches[i].tags, tracklistJSON.matches[i].length));
     }
   }
   /* TODO: split up the code of this function
@@ -1320,6 +1321,24 @@ function Tracklist(methodName, methodParam, tracklistJSON, requestSendedTime)
         tagEle.addEventListener("contextmenu", function(tagName) { return function(evt) { evt.stopPropagation(); evt.preventDefault(); onTagClicked(tagName); }; }(tagName));
         divEle.appendChild(tagEle);
       }
+      var bottomMarginEle = document.createElement("div");
+      bottomMarginEle.setAttribute("class", "search_list_bottom_margin");
+      if(0 < this.tracks[i].length)
+      {
+        var durationEle = document.createElement("div");
+        durationEle.setAttribute("class", "search_list_duration");
+        var durationText = "";
+        var hours = Math.floor(this.tracks[i].length / 3600),
+            minutes = Math.floor(this.tracks[i].length % 3600 / 60),
+            seconds = Math.floor(this.tracks[i].length % 60);
+        if(0 < hours)
+        {
+          durationText = hours + ":";
+        }
+        durationText += (minutes < 10 ? ("0" + minutes) : minutes) + ":" + (seconds < 10 ? ("0" + seconds) : seconds);
+        durationEle.appendChild(document.createTextNode(durationText));
+        bottomMarginEle.appendChild(durationEle);
+      }
       var countPlayedEle = document.createElement("div");
       countPlayedEle.setAttribute("class", "search_list_count_played");
       var playedText = "";
@@ -1334,7 +1353,8 @@ function Tracklist(methodName, methodParam, tracklistJSON, requestSendedTime)
           playedText = this.tracks[i].countPlayed + " times played";
       }
       countPlayedEle.appendChild(document.createTextNode(playedText));
-      divEle.appendChild(countPlayedEle);
+      bottomMarginEle.appendChild(countPlayedEle);
+      divEle.appendChild(bottomMarginEle);
 
       linkEle.appendChild(divEle);
       searchListWrapper.appendChild(linkEle);

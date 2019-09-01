@@ -88,7 +88,7 @@ function fileheader_tagification($dbcon, $untagified)
                                     'YEAR' => array(),
                                     'CODEC' => array(),
                                     'FORMAT' => array());
-    $filecache_updates = '';
+    $filecache_updates = array();
     require_once('lib/getid3/getid3/getid3.php');
     $getID3 = new getID3;
 $all_keys_values = '';
@@ -111,7 +111,7 @@ $all_keys_values = '';
         }
         
         /* TODO: assign to variables and execute these */
-        $filecache_updates .= generate_file_updates($dbcon, $cur_id, $cur_fileinfo);
+        $filecache_updates[] = generate_file_updates($dbcon, $cur_id, $cur_fileinfo);
         $found_tags = find_out_new_tag_associations($cur_fileinfo);
         foreach($found_tags as $tag_key => $tag_value)
         {
@@ -127,9 +127,11 @@ $all_keys_values .= "\n";
     }
 file_put_contents('sql_filecache_updates.txt', $filecache_updates);
 file_put_contents('all_keys_values.txt', $all_keys_values);
-    $result_update = $dbcon->query($filecache_updates);
+    foreach($filecache_updates as $cur_update)
+    {
+        $dbcon->query($cur_update);
+    }
     $dbcon->commit();
-file_put_contents('update_response.txt', print_r($result_update, TRUE));
     /* handle tag_names_array and tag_associations_array */
     /* first enter the new tags using INSERT IGNORE */
     $tag_inserts_sql = 'INSERT IGNORE INTO `tags` (`tagname`, `tagtype`, `description`) VALUES ';

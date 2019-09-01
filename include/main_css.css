@@ -75,10 +75,21 @@ body {
   background-color: #000000;
   color: #ffffff;
 }
-.search_list_count_played {
+.search_list_bottom_margin {
   font-size: 10pt;
-  clear: both;
   color: #3c5412;
+  clear: both;
+}
+.search_list_count_played {
+  display: inline;
+}
+.search_list_duration {
+  display: inline-block;
+  margin-right: 8px;
+  padding: 0px 2px 0px 2px;
+  border-radius: 5px;
+  background-color: #1e2a09;
+  color: #ffffff;
 }
 .search_label {
   font-size: 14pt;
