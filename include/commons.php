@@ -91,7 +91,6 @@ function fileheader_tagification($dbcon, $untagified)
     $filecache_updates = array();
     require_once('lib/getid3/getid3/getid3.php');
     $getID3 = new getID3;
-$all_keys_values = '';
     while($cur_row = $untagified->fetch_assoc())
     {
         $cur_filepath = $CONFIG_VAR['MUSIC_DIR_ROOT'] . '/' . $cur_row['path_str'];
@@ -115,8 +114,6 @@ $all_keys_values = '';
         $found_tags = find_out_new_tag_associations($cur_fileinfo);
         foreach($found_tags as $tag_key => $tag_value)
         {
-$all_keys_values .= $tag_key . ':' . $tag_value;
-$all_keys_values .= "\n";
            if(!isset($tag_associations_array[$tag_key][$tag_value]))
            {
                $tag_associations_array[$tag_key][$tag_value] = array();
@@ -125,8 +122,6 @@ $all_keys_values .= "\n";
            $tag_associations_array[$tag_key][$tag_value][] = $cur_id;
         }
     }
-file_put_contents('sql_filecache_updates.txt', $filecache_updates);
-file_put_contents('all_keys_values.txt', $all_keys_values);
     foreach($filecache_updates as $cur_update)
     {
         $dbcon->query($cur_update);
