@@ -63,7 +63,7 @@ function query_db($search_str = NULL, $search_type = "all", $search_limit = 10, 
     }
     if('all' == $search_type || 'playlist' == $search_type)
     {
-        $select_sql .= 'SELECT `id`, `name`, \'playlist\' AS \'type\', `count_played` AS \'count_played\', \'0\' AS \'length\' FROM `playlists`';
+        $select_sql .= 'SELECT `id`, `name`, \'playlist\' AS \'type\', `count_played` AS \'count_played\', `length` AS \'length\' FROM `playlists`';
         if(NULL != $search_str)
         {
             $select_sql .= ' WHERE `name` LIKE \'%' . $search_str . '%\'';
@@ -406,6 +406,7 @@ if(isset($_GET['matching_tracks']))
         {
             $result = $dbcon->query($insert_sql);
         }
+        $dbcon->query('UPDATE `playlists` SET `length`=(SELECT SUM(`length`) FROM `filecache` WHERE `id` = ANY(SELECT `fid` FROM `relation_playlists` WHERE `pid`=' . $playlist_db_id . ')) WHERE `id`=' . $playlist_db_id . ';');
         if(FALSE === $result)
         {
             server_error("Could not enter playlist items into playlist", true);

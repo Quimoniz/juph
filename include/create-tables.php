@@ -46,6 +46,7 @@ $create_sql .= '`name` VARCHAR(256) NOT NULL,';
 $create_sql .= '`description` TEXT CHARACTER SET utf8 NULL,';
 $create_sql .= '`thumb_path` VARCHAR(1024) CHARACTER SET utf8 NULL,';
 $create_sql .= '`count_played` BIGINT NOT NULL DEFAULT 0,';
+$create_sql .= '`length` BIGINT NOT NULL DEFAULT 0,';
 $create_sql .= 'KEY(`id`)';
 $create_sql .= ') ENGINE=InnoDB; ';
 // TABLE `relation_playlists`
