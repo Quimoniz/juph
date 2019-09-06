@@ -339,6 +339,49 @@ if(isset($_GET['matching_tracks']))
     {
         client_error('no');
     }
+} else if(isset($_GET['file_info']))
+{
+    $file_id = (int) $_GET['file_info'];
+    $result = @$dbcon->query('SELECT `path_str`, `size`, `count_played`, `tagified`, `length`, `bitrate`, `frequency`, `trackid`, `stereo`, `trackname`, `comment` FROM `filecache` WHERE `id`=' . $file_id);
+    if(!(FALSE === $result))
+    {
+        $filecache_data = $result->fetch_assoc();
+        $result = @$dbcon->query('SELECT `tagname`, `tagtype`, `description` FROM `tags` WHERE `id` = ANY(SELECT `tid` FROM `relation_tags` WHERE `fid`=' . $file_id . ')');
+        $tag_data = array();
+        if(!(FALSE === $result))
+        {
+            while($cur_row = $result->fetch_assoc())
+            {
+                $tag_data[] = $cur_row;
+            }
+        }
+        echo '{ "id": ' . $file_id . ', ';
+        echo '"path_str": "' . js_escape($filecache_data['path_str']) . '", ';
+        echo '"size": ' . $filecache_data['size'] . ', ';
+        echo '"count_played": ' . $filecache_data['count_played'] . ', ';
+        echo '"tagified": ' . ('Y' == $filecache_data['tagified'] ? 'true' : 'false') . ', ';
+        echo '"length": ' . $filecache_data['length'] . ', ';
+        echo '"bitrate": ' . $filecache_data['bitrate'] . ', ';
+        echo '"frequency": ' . $filecache_data['frequency'] . ', ';
+        echo '"trackid": ' . $filecache_data['trackid'] . ', ';
+        echo '"stereo": "' . $filecache_data['stereo'] . '", ';
+        echo '"trackname": "' . js_escape($filecache_data['trackname']) . '", ';
+        echo '"comment": "' . js_escape($filecache_data['comment']) . '", ';
+        echo '"tags": [';
+        $i = 0;
+        foreach($tag_data as $cur_taginfo)
+        {
+            if(0 < $i)
+            {
+              echo ', ';
+            }
+            echo '{"name": "' . js_escape($cur_taginfo['tagname']) . '", '; 
+            echo '"type": "' . js_escape($cur_taginfo['tagtype']) . '", '; 
+            echo '"description": "' . js_escape($cur_taginfo['description']) . '" }'; 
+            $i++;
+        }
+        echo ']}';
+    }
 } else if(isset($_GET['request_playlist']))
 {
     $playlist_id = (int) $_GET['request_playlist'];
