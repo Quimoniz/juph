@@ -355,6 +355,32 @@ if(isset($_GET['matching_tracks']))
                 $tag_data[] = $cur_row;
             }
         }
+        require_once('lib/getid3/getid3/getid3.php');
+        $getID3 = new getID3;
+        $full_filepath = $CONFIG_VAR['MUSIC_DIR_ROOT'] . '/' . $filecache_data['path_str'];
+        $id3_fileinfo = $getID3->analyze($full_filepath);
+        getid3_lib::CopyTagsToComments($id3_fileinfo);
+        $haz_picture = FALSE;
+        $picture_data = '';
+        $picture_mime = '';
+        $picture_dimensions = array( 0, 0);
+        
+        if(isset($id3_fileinfo['comments']['picture'][0]['data']))
+        {
+            $picture_data = $id3_fileinfo['comments']['picture'][0]['data'];
+            $haz_picture = TRUE;
+        }
+        if(isset($id3_fileinfo['comments']['picture'][0]['image_mime']))
+        {
+            $picture_mime = $id3_fileinfo['comments']['picture'][0]['image_mime'];
+        }
+        if(isset($id3_fileinfo['comments']['picture'][0]['image_width'])
+        && isset($id3_fileinfo['comments']['picture'][0]['image_height']))
+        {
+            $picture_dimensions[0] = intval($id3_fileinfo['comments']['picture'][0]['image_width']);
+            $picture_dimensions[1] = intval($id3_fileinfo['comments']['picture'][0]['image_height']);
+        }
+
         echo '{ "id": ' . $file_id . ', ';
         echo '"path_str": "' . js_escape($filecache_data['path_str']) . '", ';
         echo '"size": ' . $filecache_data['size'] . ', ';
@@ -367,6 +393,39 @@ if(isset($_GET['matching_tracks']))
         echo '"stereo": "' . $filecache_data['stereo'] . '", ';
         echo '"trackname": "' . js_escape($filecache_data['trackname']) . '", ';
         echo '"comment": "' . js_escape($filecache_data['comment']) . '", ';
+        if(isset($id3_fileinfo['comments']['unsynchronized_lyrics']))
+        {
+            echo '"unsynchronized_lyrics": "' . js_escape($id3_fileinfo['comments']['unsynchronized_lyrics']) . '", ';
+        }
+        if(isset($id3_fileinfo['comments']['synchronized_lyrics']))
+        {
+            echo '"synchronized_lyrics": "' . js_escape($id3_fileinfo['comments']['synchronized_lyrics']) . '", ';
+        }
+        if(isset($id3_fileinfo['id3v2']['chapters']))
+        {
+            echo '"chapters": [';
+            $i = 0;
+            foreach($id3_fileinfo['id3v2']['chapters'] as $cur_chapter)
+            {
+                if(0 < $i)
+                {
+                  echo ', ';
+                }
+                echo '{"begin": ' . intval($cur_chapter['time_begin']) . ',';
+                echo '"end": ' . intval($cur_chapter['time_end']) . ',';
+                echo '"name": "' . js_escape($cur_chapter['chapter_name']) . '"} ';
+                $i++;
+            }
+            echo '],';
+        }
+        if($haz_picture)
+        {
+            echo '"picture": {';
+            echo '"mime": "' . js_escape($picture_mime) . '", ';
+            echo '"width": ' . $picture_dimensions[0] . ', ';
+            echo '"height": ' . $picture_dimensions[1] . ', ';
+            echo '"data": "' . base64_encode($picture_data) . '"}, ';
+        }
         echo '"tags": [';
         $i = 0;
         foreach($tag_data as $cur_taginfo)
