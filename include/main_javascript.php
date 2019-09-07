@@ -983,10 +983,18 @@ function PlaylistClass()
         {
           playlistObj.setPlaylistName(param.target.playlistName);
         }
-        for(var i = 0; i < responseJSON.matches.length; ++i)
+        if("last" == enqueueWhere)
         {
-          if(enqueueWhere == "last") playlistObj.enqueueLast(responseJSON.matches[i].id, responseJSON.matches[i].type, responseJSON.matches[i].name);
-          else if(enqueueWhere == "next") playlistObj.enqueueNext(responseJSON.matches[i].id, responseJSON.matches[i].type, responseJSON.matches[i].name);
+          for(var i = 0; i < responseJSON.matches.length; ++i)
+          {
+            playlistObj.enqueueLast(responseJSON.matches[i].id, responseJSON.matches[i].type, responseJSON.matches[i].name);
+          }
+        } else if("next" == enqueueWhere)
+        {
+          for(var i = responseJSON.matches.length -1; 0 <= i; --i)
+          {
+            playlistObj.enqueueNext(responseJSON.matches[i].id, responseJSON.matches[i].type, responseJSON.matches[i].name);
+          }
         }
       }
     });
