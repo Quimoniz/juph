@@ -1604,7 +1604,7 @@ function beautifySongName(filename)
 function handle_global_keydown(evt)
 {
   //check if this event is targeted at some input element
-  if(evt && evt.path && 0 < evt.path.length && "INPUT" == evt.path[0].tagName)
+  if(evt && ((evt.path && 0 < evt.path.length && "INPUT" == evt.path[0].tagName) || (evt.target && evt.target.tagName && "INPUT" == evt.target.tagName)) )
   {
     return;
   } else
