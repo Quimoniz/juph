@@ -3,6 +3,7 @@ var searchField;
 var searchListWrapper;
 var audioPlayer;
 var audioCaption;
+var audioSubcaption;
 var playlistWrapper;
 var sessionPlaylist;
 var playlistEle;
@@ -24,6 +25,7 @@ function init()
   audioPlayer.addEventListener("ended", playlistObj.trackEnded);
   audioPlayer.addEventListener("error", playlistObj.onerror);
   audioCaption = document.getElementById("audio_caption");
+  audioSubcaption = document.getElementById("audio_subcaption");
   BODY = document.getElementsByTagName("body")[0];
   BODY.getTotalHeight = function()
   {
@@ -444,6 +446,24 @@ var juffImg = {
     juffImg.ele.setAttribute("width",  match.width);
     juffImg.ele.setAttribute("height", match.height);
   },
+  setBase64Img: function(data, mimetype, width, height)
+  {
+    if(height > 200)
+    {
+      var scalingFactor = height / 200;
+      height /= scalingFactor;
+      width /= scalingFactor;
+    }
+    if(width > 400)
+    {
+      var scalingFactor = width / 400;
+      height /= scalingFactor;
+      width /= scalingFactor;
+    }
+    juffImg.ele.setAttribute("src", "data:" + mimetype + ";base64," + data);
+    juffImg.ele.setAttribute("width", width);
+    juffImg.ele.setAttribute("height", height);
+  },
   getImgCount: function()
   {
     return juffImg.imgArr.length;
@@ -653,6 +673,16 @@ function PlaylistClass()
     }
     trackEle.appendChild(document.createTextNode(trackObj.beautifiedName));
     trackEle.setAttribute("title", "Jump to: " + trackObj.beautifiedName);
+    var infoEle = advancedCreateElement("div", trackEle, "playlist_element_info", "float: right; ", "i");
+    infoEle.addEventListener("click", function (clickedTrack) { return function (evtObj) {
+      evtObj.preventDefault();
+      var req = new XMLHttpRequest();
+      req.open("GET", "?ajax&file_info=" + clickedTrack.id);
+      req.addEventListener("load", function(evtObj) {
+        alert(evtObj.target.responseText);
+      });
+      req.send();
+    }; }(trackObj));
     trackEle = trackLink.appendChild(trackEle);
     if(position == (this.htmlTrackCount + 1))
     {
@@ -808,6 +838,7 @@ function PlaylistClass()
           audioPlayer.pause();
           audioPlayer.setAttribute("src", requestUrl);
           audioPlayer.preload = "auto";
+          this.loadTrackInformation(this.tracks[this.offset].id);
           juffImg.setImg(Math.floor(1 + Math.random() * (juffImg.getImgCount() - 1)));
         } else
         {
@@ -896,6 +927,42 @@ function PlaylistClass()
       //don't advance offset
       playlistObj.play();
     }
+  }
+  this.loadTrackInformation = function(trackId)
+  {
+    var req = new XMLHttpRequest();
+    req.open("GET", "?ajax&file_info=" + trackId);
+    req.addEventListener("load", function(evtObj) {
+      var response = undefined;
+      try
+      {
+        response = JSON.parse(evtObj.target.responseText)
+      } catch(exc)
+      {
+        console.log("Error parsing file_info JSON.");
+      }
+      if(response)
+      {
+        removeChilds(audioSubcaption);
+        var relevantTags = ["ALBUM", "ARTIST"]
+        for(var i = 0; i < response.tags.length; ++i)
+        {
+          for(var j = 0; j < relevantTags.length; ++j)
+          {
+            if(relevantTags[j] == response.tags[i].type)
+            {
+              advancedCreateElement("div", audioSubcaption, "subcaption_tag", undefined, relevantTags[j] + ":" + response.tags[i].name);
+            }
+          }
+        }
+        advancedCreateElement("div", audioSubcaption, "subcaption_tag", undefined, response.stereo);
+        if(response.picture)
+        {
+          juffImg.setBase64Img(response.picture.data, response.picture.mime, response.picture.width, response.picture.height);
+        }
+      }
+    });
+    req.send();
   }
   this.setHtmlOption = function(optionNumber, optionEnabled)
   {

@@ -3,6 +3,8 @@
 <img id="juff_img" src="img/logo.png" width="178" height="200" alt="juph logo"/><br/>
 <div id="audio_caption">
 </div>
+<div id="audio_subcaption">
+</div>
 <audio id="audio_player" controls>
 </audio>
 <div id="playlist_wrapper">
