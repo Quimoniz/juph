@@ -709,7 +709,7 @@ function PlaylistClass()
     {
       playlistObj.offset--;
     }
-    if(position < (this.tracks.length - 1))
+    if(position < this.tracks.length)
     {
       for(var i = position; i < this.tracks.length; ++i)
       {
