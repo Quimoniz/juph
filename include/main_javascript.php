@@ -953,6 +953,11 @@ function PlaylistClass()
       }
       if(response)
       {
+        if(response["trackname"])
+        {
+          removeChilds(audioCaption);
+          audioCaption.appendChild(document.createTextNode(response.trackname));
+        }
         removeChilds(audioSubcaption);
         var relevantTags = ["ALBUM", "ARTIST"]
         for(var i = 0; i < response.tags.length; ++i)
@@ -1665,8 +1670,11 @@ function process_matching_tracks(methodName, methodParam, responseText, requestS
   }
   if(responseJSON)
   {
-    currentTracklist = new Tracklist(methodName, methodParam, responseJSON, requestSendedTime);
-    currentTracklist.assumeSearchList();
+    if(!hasToHandleAjaxFailure(responseJSON))
+    {
+      currentTracklist = new Tracklist(methodName, methodParam, responseJSON, requestSendedTime);
+      currentTracklist.assumeSearchList();
+    }
   }
 }
 function searchTrackRightclicked(evt, listEle, trackId, trackType, trackName)
@@ -1741,6 +1749,25 @@ function searchTrackLeftclicked(trackId, trackType, trackName)
     playlistObj.clearPlaylist();
     playlistObj.enqueueLast(trackId, trackType, trackName);
     playlistObj.play();
+  }
+}
+function hasToHandleAjaxFailure(parsedJSON)
+{
+  if(!parsedJSON["success"])
+  {
+    new ContextMenuClass(Math.floor(window.innerWidth / 2), Math.floor(window.innerHeight / 2), BODY, [
+      ["Ajax Error", undefined],
+      ["Enter pwd", function () {
+        var pwd = prompt("Enter password");
+        var req = new XMLHttpRequest();
+        req.open("GET", "?access_allow_cookies&access_pwd=" + encodeURIComponent(pwd));
+        req.send();
+      }]
+    ]);
+    return true;
+  } else
+  {
+    return false;
   }
 }
 function advancedCreateElement(tagName, parentNode, className, styles, text)

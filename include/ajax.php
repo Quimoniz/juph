@@ -381,7 +381,8 @@ if(isset($_GET['matching_tracks']))
             $picture_dimensions[1] = intval($id3_fileinfo['comments']['picture'][0]['image_height']);
         }
 
-        echo '{ "id": ' . $file_id . ', ';
+        echo '{ "success": true, ';
+        echo '"id": ' . $file_id . ', ';
         echo '"path_str": "' . js_escape($filecache_data['path_str']) . '", ';
         echo '"size": ' . $filecache_data['size'] . ', ';
         echo '"count_played": ' . $filecache_data['count_played'] . ', ';
@@ -440,6 +441,9 @@ if(isset($_GET['matching_tracks']))
             $i++;
         }
         echo ']}';
+    } else
+    {
+        echo '{ "success": false }';
     }
 } else if(isset($_GET['request_playlist']))
 {

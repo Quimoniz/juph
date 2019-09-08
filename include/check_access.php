@@ -24,7 +24,6 @@ if($access_granted)
     {
         header('HTTP/1.1 303 See other');
         header('Location: ?');
-        exit(0);
     }
     if($access_setcookie)
     {
@@ -38,8 +37,18 @@ if($access_granted)
         $SESSION_ID = gen_pwd(32, false);
     }
     setcookie('session_id', $SESSION_ID, time() + 86400 * 30);
+    if($redirect_request)
+    {
+        exit(0);
+    }
 } else
 {
+    if(isset($_GET['ajax']))
+    {
+        echo '{"success": false, "failure_reason": "no password cookie" }';
+        exit(0);
+    } else
+    {
 ?>
 <!DOCTYPE html5>
 <html>
@@ -69,7 +78,8 @@ if($access_granted)
 </body>
 </html>
 <?php
-    exit(0);
+        exit(0);
+    }
 }
 
 ?>
