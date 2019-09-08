@@ -393,13 +393,13 @@ if(isset($_GET['matching_tracks']))
         echo '"stereo": "' . $filecache_data['stereo'] . '", ';
         echo '"trackname": "' . js_escape($filecache_data['trackname']) . '", ';
         echo '"comment": "' . js_escape($filecache_data['comment']) . '", ';
-        if(isset($id3_fileinfo['comments']['unsynchronized_lyrics']))
+        if(isset($id3_fileinfo['comments']['unsynchronised_lyric']))
         {
-            echo '"unsynchronized_lyrics": "' . js_escape($id3_fileinfo['comments']['unsynchronized_lyrics']) . '", ';
+            echo '"unsynchronised_lyric": "' . js_escape(implode("\n", $id3_fileinfo['comments']['unsynchronised_lyric'])) . '", ';
         }
-        if(isset($id3_fileinfo['comments']['synchronized_lyrics']))
+        if(isset($id3_fileinfo['comments']['synchronised_lyric']))
         {
-            echo '"synchronized_lyrics": "' . js_escape($id3_fileinfo['comments']['synchronized_lyrics']) . '", ';
+            echo '"synchronised_lyric": "' . js_escape(implode("\n", $id3_fileinfo['comments']['synchronised_lyric'])) . '", ';
         }
         if(isset($id3_fileinfo['id3v2']['chapters']))
         {

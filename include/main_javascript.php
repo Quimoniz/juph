@@ -673,13 +673,23 @@ function PlaylistClass()
     }
     trackEle.appendChild(document.createTextNode(trackObj.beautifiedName));
     trackEle.setAttribute("title", "Jump to: " + trackObj.beautifiedName);
-    var infoEle = advancedCreateElement("div", trackEle, "playlist_element_info", "float: right; ", "i");
+    var infoEle = advancedCreateElement("div", trackEle, "playlist_element_info", "float: right; ", "E");
     infoEle.addEventListener("click", function (clickedTrack) { return function (evtObj) {
       evtObj.preventDefault();
       var req = new XMLHttpRequest();
       req.open("GET", "?ajax&file_info=" + clickedTrack.id);
       req.addEventListener("load", function(evtObj) {
-        alert(evtObj.target.responseText);
+        var responseJSON = undefined;
+        try {
+          responseJSON = JSON.parse(evtObj.target.responseText);
+        } catch(exc)
+        {
+          console.log("Couldn't parse response to file_info request.");
+        }
+        if(responseJSON)
+        {
+          editFileTagsMenu(responseJSON);
+        }
       });
       req.send();
     }; }(trackObj));
@@ -1117,6 +1127,135 @@ function PlaylistClass()
     }
   }
 }
+function editFileTagsMenu(fileinfo)
+{
+  var editMenuWrapper = advancedCreateElement("div", BODY, "editmenu_wrapper", undefined, undefined);
+  var editMenuTitle = advancedCreateElement("div", editMenuWrapper, "editmenu_title", undefined, fileinfo.path_str);
+  var closeMenuEle = advancedCreateElement("div", editMenuTitle, "editmenu_close", undefined, "X");
+  closeMenuEle.addEventListener("click", function(editMenuReference) { return function () { BODY.removeChild(editMenuReference); }; }(editMenuWrapper));
+  var editMenuForm = advancedCreateElement("form", editMenuWrapper, "editmenu_form", undefined, undefined);
+  var fileHeading = advancedCreateElement("h2", editMenuForm, "editmenu_heading", undefined, "File specific data");
+  var dataFields = {
+    "id": {"label": "ID in database", "type": "number", "readonly": true},
+    "size": {"label": "Size in Bytes", "type": "number", "readonly": true, "format": formatSize},
+    "count_played": {"label": "Count Played", "type": "number", "readonly": true},
+    "tagified": {"label": "Scanned for Tags", "type": "checkbox", "readonly": true},
+    "length": {"label": "Duration", "type": "number", "readonly": true, "format": formatDuration},
+    "bitrate": {"label": "Bits per second", "type": "number", "readonly": true, "format": function(raw) { return (new Number(parseInt(raw)/1000)).toFixed(3) + " kbps"}},
+    "frequency": {"label": "Record frequency", "type": "number", "readonly": true, "format": function(raw) { return raw + " Hz"}},
+    "trackid": {"label": "Track number", "type": "number", "readonly": false},
+    "stereo": {"label": "Stereo", "type": "text", "readonly": true},
+    "trackname": {"label": "Track name", "type": "text", "readonly": false},
+    "comment": {"label": "Commentary", "type": "textarea", "readonly": false},
+    "unsynchronised_lyric": {"label": "Unsynch Lyrics", "type": "textarea", "readonly": false},
+    "synchronised_lyric": {"label": "Synched Lyrics", "type": "textarea", "readonly": false}
+  }
+  for(var curField in dataFields)
+  {
+    var labelWrapper = advancedCreateElement("div", editMenuForm, "editmenu_wrapper_label", undefined, undefined);
+    var curLabel = advancedCreateElement("label", labelWrapper, "editmenu_label", undefined, dataFields[curField].label);
+    curLabel.setAttribute("for", "editmenu_" + curField);
+    var curInput = undefined;
+    if(dataFields[curField].readonly)
+    {
+      curInput = document.createElement("span");
+    } else {
+      switch(dataFields[curField].type)
+      {
+        case "number":
+          curInput = document.createElement("input");
+          curInput.setAttribute("type", "number");
+          break;
+        case "text":
+          curInput = document.createElement("input");
+          curInput.setAttribute("type", "text");
+          break;
+        case "checkbox":
+          curInput = document.createElement("input");
+          curInput.setAttribute("type", "checkbox");
+          break;
+        case "textarea":
+          curInput = document.createElement("textarea");
+          curInput.setAttribute("rows", 5);
+          curInput.setAttribute("cols", 80);
+          break;
+      }
+    }
+    curInput.setAttribute("id", "editmenu_" + curField);
+    curInput.setAttribute("class", "editmenu_input");
+    if(fileinfo[curField])
+    {
+      if("SPAN" == curInput.tagName)
+      {
+        if(dataFields[curField].format)
+        {
+          curInput.appendChild(document.createTextNode(dataFields[curField].format(fileinfo[curField])));
+        } else
+        {
+          curInput.appendChild(document.createTextNode(fileinfo[curField]));
+        }
+      } else
+      {
+        curInput.value = fileinfo[curField];
+      }
+    }
+    if(dataFields[curField].readonly)
+    {
+      curInput.setAttribute("readonly", "readonly");
+    }
+    var inputWrapper = advancedCreateElement("div", editMenuForm, "editmenu_wrapper_input", undefined, undefined);
+    inputWrapper.appendChild(curInput);
+    if("textarea" == dataFields[curField].type)
+    {
+      labelWrapper.setAttribute("class", labelWrapper.getAttribute("class") + " editmenu_wrapper_textareaheight");
+      inputWrapper.setAttribute("class", inputWrapper.getAttribute("class") + " editmenu_wrapper_textareaheight");
+    }
+  }
+  var tagHeading = advancedCreateElement("h2", editMenuForm, "editmenu_heading", undefined, "Tags attached to File");
+  var tableEle = advancedCreateElement("table", editMenuForm, "editmenu_table_wrapper", undefined, undefined);
+  var musicTags = {
+      "DIRECTORY": {"readonly": true},
+      "FORMAT": {"readonly": true},
+      "CODEC": {"readonly": true},
+      "ARTIST": {"readonly": false},
+      "ALBUM": {"readonly": false},
+      "GENRE": {"readonly": false},
+      "YEAR": {"readonly": false}
+    };
+  var createTablerow = function(parentTable, tagtype, tagname, isReadonly)
+  {
+    var curRow = advancedCreateElement("tr", parentTable, "editmenu_table_tr", undefined, undefined);
+    var curCell = advancedCreateElement("td", curRow, "editmenu_table_tagtype", undefined, tagtype);
+    curCell = advancedCreateElement("td", curRow, "editmenu_table_tagname", undefined, undefined);
+    if(isReadonly)
+    {
+      curCell.appendChild(document.createTextNode(tagname));
+    } else
+    {
+      var curInput = document.createElement("input");
+      curInput.setAttribute("class", "editmenu_table_taginput");
+      curInput.setAttribute("type", "YEAR" == tagtype ? "number" : "text");
+      curInput.setAttribute("value", tagname);
+      curCell.appendChild(curInput);
+    }
+  };
+  for(var curMusicTag in musicTags)
+  {
+    var timesFound = 0;
+    for(var i = 0; i < fileinfo.tags.length; ++i)
+    {
+      if(fileinfo.tags[i].type == curMusicTag)
+      {
+        createTablerow(tableEle, curMusicTag, fileinfo.tags[i].name, musicTags[curMusicTag].readonly);
+        ++timesFound;
+      }
+    }
+    if(0 == timesFound && !musicTags[curMusicTag].readonly)
+    {
+      createTablerow(tableEle, curMusicTag, "", musicTags[curMusicTag].readonly);
+    }
+  }
+}
 /* TODO: extend this by adding field 'countPlayed' */
 function TrackClass(trackId, trackType, trackName, trackCountPlayed, trackTags, length)
 {
@@ -1402,16 +1541,7 @@ function Tracklist(methodName, methodParam, tracklistJSON, requestSendedTime)
       {
         var durationEle = document.createElement("div");
         durationEle.setAttribute("class", "search_list_duration");
-        var durationText = "";
-        var hours = Math.floor(this.tracks[i].length / 3600),
-            minutes = Math.floor(this.tracks[i].length % 3600 / 60),
-            seconds = Math.floor(this.tracks[i].length % 60);
-        if(0 < hours)
-        {
-          durationText = hours + ":";
-        }
-        durationText += (minutes < 10 ? ("0" + minutes) : minutes) + ":" + (seconds < 10 ? ("0" + seconds) : seconds);
-        durationEle.appendChild(document.createTextNode(durationText));
+        durationEle.appendChild(document.createTextNode(formatDuration(this.tracks[i].length)));
         bottomMarginEle.appendChild(durationEle);
       }
       var countPlayedEle = document.createElement("div");
@@ -1435,6 +1565,36 @@ function Tracklist(methodName, methodParam, tracklistJSON, requestSendedTime)
       searchListWrapper.appendChild(linkEle);
     }
   }
+}
+function formatDuration(allSeconds)
+{
+  var durationText = "";
+  var hours = Math.floor(allSeconds / 3600),
+      minutes = Math.floor(allSeconds % 3600 / 60),
+      seconds = Math.floor(allSeconds % 60);
+  if(0 < hours)
+  {
+    durationText = hours + ":";
+  }
+  durationText += (minutes < 10 ? ("0" + minutes) : minutes) + ":" + (seconds < 10 ? ("0" + seconds) : seconds);
+  return durationText;
+}
+function formatSize(bytesize)
+{
+  var units = ["B", "KB", "MB", "GB", "TB", "EB", "ZB"];
+  var curUnit = 1;
+  var i = 0;
+  for(; i < units.length; ++i)
+  {
+    if((curUnit * 2048) < bytesize)
+    {
+      curUnit *= 1024;
+    } else
+    {
+      break;
+    }
+  }
+  return (new Number(bytesize / curUnit)).toFixed(3) + " " + units[i];
 }
 function process_matching_tracks(methodName, methodParam, responseText, requestSendedTime)
 {

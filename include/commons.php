@@ -477,7 +477,7 @@ class MinimalisticFile {
 }
 function js_escape($source_str)
 {
-    return str_replace(array("\\", "\"","\n"), array("\\\\", "\\\"", "\\n"), $source_str);
+    return str_replace(array("\\", "\"","\n","\r"), array("\\\\", "\\\"", "\\n", "\\r"), $source_str);
 }
 function server_error($message = "Internal Server Error", $ajax = false)
 {

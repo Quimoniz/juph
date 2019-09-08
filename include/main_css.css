@@ -467,3 +467,67 @@ body {
 .footer_status {
   float: left;
 }
+.editmenu_wrapper {
+  position: absolute;
+  right: 20px;
+  top: 0px;
+  font-family: Sans, Sans-Serif, Arial;
+  font-size: 14pt;
+  width: 800px;
+  height: calc(100% - 6px);
+  border: 3px solid #928320;
+  border-radius: 10px;
+  background-color: #ede4ab;
+  overflow: hidden;
+}
+.editmenu_form {
+  height: calc(100% - 35px);
+  overflow: auto;
+}
+.editmenu_title {
+  height: 29px;
+  background-color: #d6c243;
+}
+.editmenu_wrapper_label, .editmenu_wrapper_input {
+  height: 30px;
+  float: left;
+}
+.editmenu_wrapper_textareaheight {
+  height: 94px;
+}
+.editmenu_wrapper_label {
+  width: 180px;
+  clear: left;
+}
+.editmenu_wrapper_input {
+  width: 450px;
+}
+.editmenu_close {
+  float: right;
+  width: 22px;
+  height: 27px;
+  background-color: #afa56a;
+  cursor: pointer;
+  font-size: 21px;
+  padding: 0px 0px 0px 5px;
+  border: 2px solid #928320;
+  border-right: none;
+  border-top: none;
+}
+.editmenu_table_wrapper {
+}
+.editmenu_table_tr {
+}
+.editmenu_table_tagtype {
+  width: 180px;
+}
+.editmenu_table_tagname {
+  width: 450px;
+}
+.editmenu_heading {
+  width: 100%;
+  clear: both;
+  text-align: center;
+  margin: 0px;
+  padding: 0px;
+}
