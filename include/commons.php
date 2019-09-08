@@ -65,9 +65,13 @@ function tagify_filecache($dbcon)
     //$untagified_result = $dbcon->query('SELECT `id`,`path_str` FROM `filecache` WHERE `tagified`=\'N\' ORDER BY `id` ASC LIMIT 100');
     if(!(FALSE === $untagified_result) && 0 < $untagified_result->num_rows)
     {
-        directory_tagification($dbcon, $untagified_result);
-        $untagified_result->data_seek(0);
-        fileheader_tagification($dbcon, $untagified_result);
+        $untagified_files = array();
+        while($cur_row = $untagified_result->fetch_row())
+        {
+            $untagified_files[] = array('id' => $cur_row[0], 'path_str' => cur_row[1]);
+        }
+        directory_tagification($dbcon, $untagified_files);
+        fileheader_tagification($dbcon, $untagified_files);
     }
 }
 function fileheader_tagification($dbcon, $untagified)
@@ -91,7 +95,7 @@ function fileheader_tagification($dbcon, $untagified)
     $filecache_updates = array();
     require_once('lib/getid3/getid3/getid3.php');
     $getID3 = new getID3;
-    while($cur_row = $untagified->fetch_assoc())
+    foreach($untagified as $cur_row)
     {
         $cur_filepath = $CONFIG_VAR['MUSIC_DIR_ROOT'] . '/' . $cur_row['path_str'];
         $i++;
@@ -232,10 +236,10 @@ function generate_file_updates($dbcon, $file_id, $file_info)
     }
     if(isset($file_info['comments']['track']))
     {
-        $fields['trackid'] = intval($file_info['comments']['track']);
+        $fields['trackid'] = intval(implode(' ', $file_info['comments']['track']));
     } elseif(isset($file_info['comments']['track_number']))
     {
-        $fields['trackid'] = intval($file_info['comments']['track_number']);
+        $fields['trackid'] = intval(implode(' ', $file_info['comments']['track_number']));
     }
     if(isset($file_info['comments']['title']))
     {
@@ -296,7 +300,7 @@ function directory_tagification($dbcon, $untagified)
     //   -> enter them into table `tags`
     // second round, compile an insert for file<->tag relation
     $arr_tags = array();
-    while($cur_row = $untagified->fetch_assoc())
+    foreach($untagified as $cur_row)
     {
         $cur_id = $cur_row['id'];
         $cur_dir_name = dirname($cur_row['path_str']);
@@ -336,12 +340,11 @@ function directory_tagification($dbcon, $untagified)
                 }
             }
         }
-        $untagified->data_seek(0);
        
         $insert_sql = 'INSERT IGNORE INTO `relation_tags` (`fid`,`tid`) VALUES';
         $j = 0;
         $k = 0;
-        while($cur_row = $untagified->fetch_assoc())
+        foreach($untagified as $cur_row)
         {
             $cur_id = $cur_row['id'];
             $cur_dir_name = dirname($cur_row['path_str']);

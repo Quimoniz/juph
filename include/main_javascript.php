@@ -1136,6 +1136,12 @@ function editFileTagsMenu(fileinfo)
   var editMenuForm = advancedCreateElement("form", editMenuWrapper, "editmenu_form", undefined, undefined);
   editMenuForm.setAttribute("method", "POST");
   editMenuForm.setAttribute("action", "?put_file_info");
+  editMenuForm.setAttribute("enctype", "multipart/form-data");
+  var hiddenId = document.createElement("input");
+  hiddenId.setAttribute("type", "hidden");
+  hiddenId.setAttribute("name", "id");
+  hiddenId.value = fileinfo.id;
+  editMenuForm.appendChild(hiddenId);
   var fileHeading = advancedCreateElement("h2", editMenuForm, "editmenu_heading", undefined, "File specific data");
   var dataFields = {
     "id": {"label": "ID in database", "type": "number", "readonly": true},
