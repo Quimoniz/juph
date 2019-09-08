@@ -15,17 +15,6 @@ if(isset($_POST['id'])
 && isset($_POST['tag_GENRE'])
 && isset($_POST['tag_YEAR']))
 {
-    function sanitize_string($sourceString, $maxlen)
-    {
-        global $dbcon;
-        if($maxlen <= strlen($sourceString))
-        {
-            return $dbcon->real_escape_string(substr($sourceString, 0, $maxlen));
-        } else
-        {
-            return $dbcon->real_escape_string($sourceString);
-        }
-    }
     function string_maxlen($sourceString, $maxlen)
     {
         if($maxlen <= strlen($sourceString))
@@ -41,8 +30,8 @@ if(isset($_POST['id'])
 
     $paramId = intval($_POST['id']);
     $paramTrackid = intval($_POST['trackid']);
-    $paramTrackname = sanitize_string($_POST['trackname'], 1000);
-    $paramComment = sanitize_string($_POST['comment'], 4096);
+    $paramTrackname = string_maxlen($_POST['trackname'], 1000);
+    $paramComment = string_maxlen($_POST['comment'], 4096);
     $paramUslt = string_maxlen($_POST['unsynchronised_lyric'], 32768);
     $paramSylt = string_maxlen($_POST['synchronised_lyric'], 32768);
     $paramTags = array();
