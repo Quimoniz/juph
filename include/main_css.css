@@ -495,6 +495,9 @@ body {
 .editmenu_wrapper_textareaheight {
   height: 94px;
 }
+.editmenu_wrapper_imageheight {
+  height: 230px;
+}
 .editmenu_wrapper_label {
   width: 180px;
   clear: left;

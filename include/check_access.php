@@ -2,6 +2,7 @@
 
 $access_granted = false;
 $access_setcookie = false;
+$redirect_request = false;
 if(isset($_GET['access_pwd']) && 0 === strcmp($CONFIG_VAR['ACCESS_PWD'], $_GET['access_pwd']) && isset($_GET['access_allow_cookies']))
 {
     $access_granted = true;
@@ -11,6 +12,7 @@ if(isset($_POST['access_pwd']) && 0 === strcmp($CONFIG_VAR['ACCESS_PWD'], $_POST
 {
     $access_granted = true;
     $access_setcookie = true;
+    $redirect_request = true;
 }
 if(isset($_COOKIE['access_pwd']) && 0 === strcmp($CONFIG_VAR['ACCESS_PWD'], $_COOKIE['access_pwd']))
 {
@@ -18,6 +20,12 @@ if(isset($_COOKIE['access_pwd']) && 0 === strcmp($CONFIG_VAR['ACCESS_PWD'], $_CO
 }
 if($access_granted)
 {
+    if($redirect_request)
+    {
+        header('HTTP/1.1 303 See other');
+        header('Location: ?');
+        exit(0);
+    }
     if($access_setcookie)
     {
         setcookie('access_pwd', $CONFIG_VAR['ACCESS_PWD'], time() + 86400 * 7);

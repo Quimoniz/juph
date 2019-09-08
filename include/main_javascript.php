@@ -1130,21 +1130,25 @@ function PlaylistClass()
 function editFileTagsMenu(fileinfo)
 {
   var editMenuWrapper = advancedCreateElement("div", BODY, "editmenu_wrapper", undefined, undefined);
-  var editMenuTitle = advancedCreateElement("div", editMenuWrapper, "editmenu_title", undefined, fileinfo.path_str);
+  var editMenuTitle = advancedCreateElement("div", editMenuWrapper, "editmenu_title", undefined, basename(fileinfo.path_str));
   var closeMenuEle = advancedCreateElement("div", editMenuTitle, "editmenu_close", undefined, "X");
   closeMenuEle.addEventListener("click", function(editMenuReference) { return function () { BODY.removeChild(editMenuReference); }; }(editMenuWrapper));
   var editMenuForm = advancedCreateElement("form", editMenuWrapper, "editmenu_form", undefined, undefined);
+  editMenuForm.setAttribute("method", "POST");
+  editMenuForm.setAttribute("action", "?put_file_info");
   var fileHeading = advancedCreateElement("h2", editMenuForm, "editmenu_heading", undefined, "File specific data");
   var dataFields = {
     "id": {"label": "ID in database", "type": "number", "readonly": true},
+    "path_str": {"label": "Full Filepath", "type": "text", "readonly": true},
     "size": {"label": "Size in Bytes", "type": "number", "readonly": true, "format": formatSize},
     "count_played": {"label": "Count Played", "type": "number", "readonly": true},
     "tagified": {"label": "Scanned for Tags", "type": "checkbox", "readonly": true},
     "length": {"label": "Duration", "type": "number", "readonly": true, "format": formatDuration},
     "bitrate": {"label": "Bits per second", "type": "number", "readonly": true, "format": function(raw) { return (new Number(parseInt(raw)/1000)).toFixed(3) + " kbps"}},
     "frequency": {"label": "Record frequency", "type": "number", "readonly": true, "format": function(raw) { return raw + " Hz"}},
-    "trackid": {"label": "Track number", "type": "number", "readonly": false},
     "stereo": {"label": "Stereo", "type": "text", "readonly": true},
+    "picture": {"label": "Picture", "type": "image", "readonly": false},
+    "trackid": {"label": "Track number", "type": "number", "readonly": false},
     "trackname": {"label": "Track name", "type": "text", "readonly": false},
     "comment": {"label": "Commentary", "type": "textarea", "readonly": false},
     "unsynchronised_lyric": {"label": "Unsynch Lyrics", "type": "textarea", "readonly": false},
@@ -1155,6 +1159,8 @@ function editFileTagsMenu(fileinfo)
     var labelWrapper = advancedCreateElement("div", editMenuForm, "editmenu_wrapper_label", undefined, undefined);
     var curLabel = advancedCreateElement("label", labelWrapper, "editmenu_label", undefined, dataFields[curField].label);
     curLabel.setAttribute("for", "editmenu_" + curField);
+    var inputWrapper = advancedCreateElement("div", editMenuForm, "editmenu_wrapper_input", undefined, undefined);
+    var addClass = undefined;
     var curInput = undefined;
     if(dataFields[curField].readonly)
     {
@@ -1178,10 +1184,45 @@ function editFileTagsMenu(fileinfo)
           curInput = document.createElement("textarea");
           curInput.setAttribute("rows", 5);
           curInput.setAttribute("cols", 80);
+          addClass = "editmenu_wrapper_textareaheight";
+          break;
+        case "image":
+          var imageEle = document.createElement("img");
+          if(fileinfo[curField])
+          {
+            imageEle.setAttribute("src", "data:" + fileinfo[curField].mime + ";base64," + fileinfo[curField].data);
+            var dimensions = [fileinfo[curField].width, fileinfo[curField].height];
+            for(var i = 0; i < dimensions.length; ++i)
+            {
+              if(dimensions[i] > 200)
+              {
+                var oldCurDimension = dimensions[i];
+                dimensions[0] /= (oldCurDimension / 200);
+                dimensions[1] /= (oldCurDimension / 200);
+              }
+            }
+            imageEle.setAttribute("width", Math.floor(dimensions[0]));
+            imageEle.setAttribute("height", Math.floor(dimensions[1]));
+          } else
+          {
+            imageEle.setAttribute("width", 200);
+            imageEle.setAttribute("height", 200);
+          }
+          inputWrapper.appendChild(imageEle);
+          advancedCreateElement("br", inputWrapper, undefined, undefined, undefined);
+          curInput = document.createElement("input");
+          curInput.setAttribute("type", "file");
+          curInput.setAttribute("accept", "image/*");
+          curInput.multiple = false;
+          curInput.addEventListener("change", function(imgEle) {
+            return function(evtObj) { imgEle.setAttribute("src", window.URL.createObjectURL(evtObj.target.files[0])); };
+          }(imageEle));
+          addClass = "editmenu_wrapper_imageheight";
           break;
       }
     }
     curInput.setAttribute("id", "editmenu_" + curField);
+    curInput.setAttribute("name", curField);
     curInput.setAttribute("class", "editmenu_input");
     if(fileinfo[curField])
     {
@@ -1194,7 +1235,7 @@ function editFileTagsMenu(fileinfo)
         {
           curInput.appendChild(document.createTextNode(fileinfo[curField]));
         }
-      } else
+      } else if("image" != dataFields[curField].type)
       {
         curInput.value = fileinfo[curField];
       }
@@ -1203,12 +1244,11 @@ function editFileTagsMenu(fileinfo)
     {
       curInput.setAttribute("readonly", "readonly");
     }
-    var inputWrapper = advancedCreateElement("div", editMenuForm, "editmenu_wrapper_input", undefined, undefined);
     inputWrapper.appendChild(curInput);
-    if("textarea" == dataFields[curField].type)
+    if(addClass)
     {
-      labelWrapper.setAttribute("class", labelWrapper.getAttribute("class") + " editmenu_wrapper_textareaheight");
-      inputWrapper.setAttribute("class", inputWrapper.getAttribute("class") + " editmenu_wrapper_textareaheight");
+      labelWrapper.setAttribute("class", labelWrapper.getAttribute("class") + " " + addClass);
+      inputWrapper.setAttribute("class", inputWrapper.getAttribute("class") + " " + addClass);
     }
   }
   var tagHeading = advancedCreateElement("h2", editMenuForm, "editmenu_heading", undefined, "Tags attached to File");
@@ -1236,6 +1276,7 @@ function editFileTagsMenu(fileinfo)
       curInput.setAttribute("class", "editmenu_table_taginput");
       curInput.setAttribute("type", "YEAR" == tagtype ? "number" : "text");
       curInput.setAttribute("value", tagname);
+      curInput.setAttribute("name", "tag_" + tagtype);
       curCell.appendChild(curInput);
     }
   };
@@ -1255,6 +1296,8 @@ function editFileTagsMenu(fileinfo)
       createTablerow(tableEle, curMusicTag, "", musicTags[curMusicTag].readonly);
     }
   }
+  var submitButton = advancedCreateElement("input", editMenuForm, "editmenu_submit", undefined, "Save");
+  submitButton.setAttribute("type", "submit");
 }
 /* TODO: extend this by adding field 'countPlayed' */
 function TrackClass(trackId, trackType, trackName, trackCountPlayed, trackTags, length)

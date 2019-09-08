@@ -103,6 +103,10 @@ if(isset($_GET['ajax']))
 {
     require_once('include/ajax.php');
 }
+if(isset($_GET['put_file_info']))
+{
+    require_once('include/put_file_info.php');
+}
 
 //step 2a, lookup scans
 //TODO: why do we do this lookup twice? - reduce this to just one query
