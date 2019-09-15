@@ -535,4 +535,82 @@ function flush_files_to_db($dbcon, $files_to_insert)
     @$dbcon->query('INSERT INTO `filecache` (`id`, `path_hash`, `path_str`, `path_filename`, `last_scan`, `size`, `valid`) ' . $sql_values . ' ON DUPLICATE KEY UPDATE `last_scan` = VALUES(`filecache`.`last_scan`), `valid`=\'Y\'');
 }
 
+
+function file_info($file_id, $analyze_mp3)
+{
+    global $CONFIG_VAR, $dbcon;
+    $result = @$dbcon->query('SELECT `path_str`, `size`, `count_played`, `tagified`, `length`, `bitrate`, `frequency`, `trackid`, `stereo`, `trackname`, `comment` FROM `filecache` WHERE `id`=' . $file_id);
+    if(!(FALSE === $result))
+    {
+        $file_data = $result->fetch_assoc();
+        $result = @$dbcon->query('SELECT `tagname`, `tagtype`, `description` FROM `tags` WHERE `id` = ANY(SELECT `tid` FROM `relation_tags` WHERE `fid`=' . $file_id . ')');
+        $file_data['tags'] = array();
+        if(!(FALSE === $result))
+        {
+            while($cur_row = $result->fetch_assoc())
+            {
+                $file_data['tags'][] = $cur_row;
+            }
+        }
+        if($analyze_mp3)
+        {
+            require_once('lib/getid3/getid3/getid3.php');
+            $getID3 = new getID3;
+            $full_filepath = $CONFIG_VAR['MUSIC_DIR_ROOT'] . '/' . $file_data['path_str'];
+            $id3_fileinfo = $getID3->analyze($full_filepath);
+            getid3_lib::CopyTagsToComments($id3_fileinfo);
+            $haz_picture = FALSE;
+            $picture_data = '';
+            $picture_mime = '';
+            $picture_dimensions = array( 0, 0);
+            
+            if(isset($id3_fileinfo['comments']['picture'][0]['data']))
+            {
+                $picture_data = $id3_fileinfo['comments']['picture'][0]['data'];
+                $haz_picture = TRUE;
+            }
+            if(isset($id3_fileinfo['comments']['picture'][0]['image_mime']))
+            {
+                $picture_mime = $id3_fileinfo['comments']['picture'][0]['image_mime'];
+            }
+            if(isset($id3_fileinfo['comments']['picture'][0]['image_width'])
+            && isset($id3_fileinfo['comments']['picture'][0]['image_height']))
+            {
+                $picture_dimensions[0] = intval($id3_fileinfo['comments']['picture'][0]['image_width']);
+                $picture_dimensions[1] = intval($id3_fileinfo['comments']['picture'][0]['image_height']);
+            }
+            if($haz_picture)
+            {
+                $file_data['picture'] = array(
+                    'mime' => $picture_mime,
+                    'dimensions' => $picture_dimensions,
+                    'data' => $picture_data);
+            }
+            if(isset($id3_fileinfo['comments']['unsynchronised_lyric']))
+            {
+                $file_data['unsynchronised_lyric'] = implode("\n", $id3_fileinfo['comments']['unsynchronised_lyric']);
+            }
+            if(isset($id3_fileinfo['comments']['synchronised_lyric']))
+            {
+                $file_data['synchronised_lyric'] = implode("\n", $id3_fileinfo['comments']['synchronised_lyric']);
+            }
+            if(isset($id3_fileinfo['id3v2']['chapters']))
+            {
+                $file_data['chapters'] = array(); 
+                foreach($id3_fileinfo['id3v2']['chapters'] as $cur_chapter)
+                {
+                    $cur_element = array(
+                        'begin' => intval($cur_chapter['time_begin']),
+                        'end' => intval($cur_chapter['time_end']), 
+                        'name' => $cur_chapter['chapter_name']);
+                    $file_data['chapters'][] = $cur_element;
+                }
+            }
+        }
+        return $file_data;
+    }
+    return NULL;
+}
+
+
 ?>

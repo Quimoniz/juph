@@ -480,6 +480,12 @@ body {
   background-color: #ede4ab;
   overflow: hidden;
 }
+.editmenu_iframe {
+  width: 100%;
+  height: calc(100% - 35px);
+  border: none;
+  overflow: auto;
+}
 .editmenu_form {
   height: calc(100% - 35px);
   overflow: auto;

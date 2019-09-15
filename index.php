@@ -107,6 +107,10 @@ if(isset($_GET['put_file_info']))
 {
     require_once('include/put_file_info.php');
 }
+if(isset($_GET['file_edit_form']))
+{
+    require_once('include/file_edit_form.php');
+}
 
 //step 2a, lookup scans
 //TODO: why do we do this lookup twice? - reduce this to just one query

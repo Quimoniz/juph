@@ -676,22 +676,7 @@ function PlaylistClass()
     var infoEle = advancedCreateElement("div", trackEle, "playlist_element_info", "float: right; ", "E");
     infoEle.addEventListener("click", function (clickedTrack) { return function (evtObj) {
       evtObj.preventDefault();
-      var req = new XMLHttpRequest();
-      req.open("GET", "?ajax&file_info=" + clickedTrack.id);
-      req.addEventListener("load", function(evtObj) {
-        var responseJSON = undefined;
-        try {
-          responseJSON = JSON.parse(evtObj.target.responseText);
-        } catch(exc)
-        {
-          console.log("Couldn't parse response to file_info request.");
-        }
-        if(responseJSON)
-        {
-          editFileTagsMenu(responseJSON);
-        }
-      });
-      req.send();
+      editFileTagsMenu(clickedTrack);
     }; }(trackObj));
     trackEle = trackLink.appendChild(trackEle);
     if(position == (this.htmlTrackCount + 1))
@@ -1132,183 +1117,16 @@ function PlaylistClass()
     }
   }
 }
-function editFileTagsMenu(fileinfo)
+function editFileTagsMenu(trackinfo)
 {
   var editMenuWrapper = advancedCreateElement("div", BODY, "editmenu_wrapper", undefined, undefined);
-  var editMenuTitle = advancedCreateElement("div", editMenuWrapper, "editmenu_title", undefined, basename(fileinfo.path_str));
+  var editMenuTitle = advancedCreateElement("div", editMenuWrapper, "editmenu_title", undefined, basename(trackinfo.name));
   var closeMenuEle = advancedCreateElement("div", editMenuTitle, "editmenu_close", undefined, "X");
   closeMenuEle.addEventListener("click", function(editMenuReference) { return function () { BODY.removeChild(editMenuReference); }; }(editMenuWrapper));
-  var editMenuForm = advancedCreateElement("form", editMenuWrapper, "editmenu_form", undefined, undefined);
-  editMenuForm.setAttribute("method", "POST");
-  editMenuForm.setAttribute("action", "?put_file_info");
-  editMenuForm.setAttribute("enctype", "multipart/form-data");
-  var hiddenId = document.createElement("input");
-  hiddenId.setAttribute("type", "hidden");
-  hiddenId.setAttribute("name", "id");
-  hiddenId.value = fileinfo.id;
-  editMenuForm.appendChild(hiddenId);
-  var fileHeading = advancedCreateElement("h2", editMenuForm, "editmenu_heading", undefined, "File specific data");
-  var dataFields = {
-    "id": {"label": "ID in database", "type": "number", "readonly": true},
-    "path_str": {"label": "Full Filepath", "type": "text", "readonly": true},
-    "size": {"label": "Size in Bytes", "type": "number", "readonly": true, "format": formatSize},
-    "count_played": {"label": "Count Played", "type": "number", "readonly": true},
-    "tagified": {"label": "Scanned for Tags", "type": "checkbox", "readonly": true},
-    "length": {"label": "Duration", "type": "number", "readonly": true, "format": formatDuration},
-    "bitrate": {"label": "Bits per second", "type": "number", "readonly": true, "format": function(raw) { return (new Number(parseInt(raw)/1000)).toFixed(3) + " kbps"}},
-    "frequency": {"label": "Record frequency", "type": "number", "readonly": true, "format": function(raw) { return raw + " Hz"}},
-    "stereo": {"label": "Stereo", "type": "text", "readonly": true},
-    "picture": {"label": "Picture", "type": "image", "readonly": false},
-    "trackid": {"label": "Track number", "type": "number", "readonly": false},
-    "trackname": {"label": "Track name", "type": "text", "readonly": false},
-    "comment": {"label": "Commentary", "type": "textarea", "readonly": false},
-    "unsynchronised_lyric": {"label": "Unsynch Lyrics", "type": "textarea", "readonly": false},
-    "synchronised_lyric": {"label": "Synched Lyrics", "type": "textarea", "readonly": false}
-  }
-  for(var curField in dataFields)
-  {
-    var labelWrapper = advancedCreateElement("div", editMenuForm, "editmenu_wrapper_label", undefined, undefined);
-    var curLabel = advancedCreateElement("label", labelWrapper, "editmenu_label", undefined, dataFields[curField].label);
-    curLabel.setAttribute("for", "editmenu_" + curField);
-    var inputWrapper = advancedCreateElement("div", editMenuForm, "editmenu_wrapper_input", undefined, undefined);
-    var addClass = undefined;
-    var curInput = undefined;
-    if(dataFields[curField].readonly)
-    {
-      curInput = document.createElement("span");
-    } else {
-      switch(dataFields[curField].type)
-      {
-        case "number":
-          curInput = document.createElement("input");
-          curInput.setAttribute("type", "number");
-          break;
-        case "text":
-          curInput = document.createElement("input");
-          curInput.setAttribute("type", "text");
-          break;
-        case "checkbox":
-          curInput = document.createElement("input");
-          curInput.setAttribute("type", "checkbox");
-          break;
-        case "textarea":
-          curInput = document.createElement("textarea");
-          curInput.setAttribute("rows", 5);
-          curInput.setAttribute("cols", 80);
-          addClass = "editmenu_wrapper_textareaheight";
-          break;
-        case "image":
-          var imageEle = document.createElement("img");
-          if(fileinfo[curField])
-          {
-            imageEle.setAttribute("src", "data:" + fileinfo[curField].mime + ";base64," + fileinfo[curField].data);
-            var dimensions = [fileinfo[curField].width, fileinfo[curField].height];
-            for(var i = 0; i < dimensions.length; ++i)
-            {
-              if(dimensions[i] > 200)
-              {
-                var oldCurDimension = dimensions[i];
-                dimensions[0] /= (oldCurDimension / 200);
-                dimensions[1] /= (oldCurDimension / 200);
-              }
-            }
-            imageEle.setAttribute("width", Math.floor(dimensions[0]));
-            imageEle.setAttribute("height", Math.floor(dimensions[1]));
-          } else
-          {
-            imageEle.setAttribute("width", 200);
-            imageEle.setAttribute("height", 200);
-          }
-          inputWrapper.appendChild(imageEle);
-          advancedCreateElement("br", inputWrapper, undefined, undefined, undefined);
-          curInput = document.createElement("input");
-          curInput.setAttribute("type", "file");
-          curInput.setAttribute("accept", "image/*");
-          curInput.multiple = false;
-          curInput.addEventListener("change", function(imgEle) {
-            return function(evtObj) { imgEle.setAttribute("src", window.URL.createObjectURL(evtObj.target.files[0])); };
-          }(imageEle));
-          addClass = "editmenu_wrapper_imageheight";
-          break;
-      }
-    }
-    curInput.setAttribute("id", "editmenu_" + curField);
-    curInput.setAttribute("name", curField);
-    curInput.setAttribute("class", "editmenu_input");
-    if(fileinfo[curField])
-    {
-      if("SPAN" == curInput.tagName)
-      {
-        if(dataFields[curField].format)
-        {
-          curInput.appendChild(document.createTextNode(dataFields[curField].format(fileinfo[curField])));
-        } else
-        {
-          curInput.appendChild(document.createTextNode(fileinfo[curField]));
-        }
-      } else if("image" != dataFields[curField].type)
-      {
-        curInput.value = fileinfo[curField];
-      }
-    }
-    if(dataFields[curField].readonly)
-    {
-      curInput.setAttribute("readonly", "readonly");
-    }
-    inputWrapper.appendChild(curInput);
-    if(addClass)
-    {
-      labelWrapper.setAttribute("class", labelWrapper.getAttribute("class") + " " + addClass);
-      inputWrapper.setAttribute("class", inputWrapper.getAttribute("class") + " " + addClass);
-    }
-  }
-  var tagHeading = advancedCreateElement("h2", editMenuForm, "editmenu_heading", undefined, "Tags attached to File");
-  var tableEle = advancedCreateElement("table", editMenuForm, "editmenu_table_wrapper", undefined, undefined);
-  var musicTags = {
-      "DIRECTORY": {"readonly": true},
-      "FORMAT": {"readonly": true},
-      "CODEC": {"readonly": true},
-      "ARTIST": {"readonly": false},
-      "ALBUM": {"readonly": false},
-      "GENRE": {"readonly": false},
-      "YEAR": {"readonly": false}
-    };
-  var createTablerow = function(parentTable, tagtype, tagname, isReadonly)
-  {
-    var curRow = advancedCreateElement("tr", parentTable, "editmenu_table_tr", undefined, undefined);
-    var curCell = advancedCreateElement("td", curRow, "editmenu_table_tagtype", undefined, tagtype);
-    curCell = advancedCreateElement("td", curRow, "editmenu_table_tagname", undefined, undefined);
-    if(isReadonly)
-    {
-      curCell.appendChild(document.createTextNode(tagname));
-    } else
-    {
-      var curInput = document.createElement("input");
-      curInput.setAttribute("class", "editmenu_table_taginput");
-      curInput.setAttribute("type", "YEAR" == tagtype ? "number" : "text");
-      curInput.setAttribute("value", tagname);
-      curInput.setAttribute("name", "tag_" + tagtype);
-      curCell.appendChild(curInput);
-    }
-  };
-  for(var curMusicTag in musicTags)
-  {
-    var timesFound = 0;
-    for(var i = 0; i < fileinfo.tags.length; ++i)
-    {
-      if(fileinfo.tags[i].type == curMusicTag)
-      {
-        createTablerow(tableEle, curMusicTag, fileinfo.tags[i].name, musicTags[curMusicTag].readonly);
-        ++timesFound;
-      }
-    }
-    if(0 == timesFound && !musicTags[curMusicTag].readonly)
-    {
-      createTablerow(tableEle, curMusicTag, "", musicTags[curMusicTag].readonly);
-    }
-  }
-  var submitButton = advancedCreateElement("input", editMenuForm, "editmenu_submit", undefined, "Save");
-  submitButton.setAttribute("type", "submit");
+  var iframeEle = document.createElement("iframe");
+  iframeEle.setAttribute("src", "?file_edit_form=" + trackinfo.id);
+  iframeEle.setAttribute("class", "editmenu_iframe");
+  editMenuWrapper.appendChild(iframeEle);
 }
 /* TODO: extend this by adding field 'countPlayed' */
 function TrackClass(trackId, trackType, trackName, trackCountPlayed, trackTags, length)
