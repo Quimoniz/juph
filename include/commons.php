@@ -68,7 +68,7 @@ function tagify_filecache($dbcon)
         $untagified_files = array();
         while($cur_row = $untagified_result->fetch_row())
         {
-            $untagified_files[] = array('id' => $cur_row[0], 'path_str' => cur_row[1]);
+            $untagified_files[] = array('id' => $cur_row[0], 'path_str' => $cur_row[1]);
         }
         directory_tagification($dbcon, $untagified_files);
         fileheader_tagification($dbcon, $untagified_files);
