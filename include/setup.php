@@ -82,6 +82,11 @@ if(isset($_POST['pwd']) && $CONFIG_VAR['ADMIN_PWD'] === $_POST['pwd'])
         $CONFIG_VAR['DB_PWD'] = $_POST['db_pwd'];
         $CONFIG_VAR['MUSIC_DIR_ROOT'] = $_POST['music_dir_root'];
         $CONFIG_VAR['ACCESS_PWD'] = $_POST['access_pwd_param'];
+        if(!class_exists('mysqli'))
+        {
+            server_error("Module for mysqli not loaded. Class mysqli not available.");
+            exit(0);
+        }
         if(!check_db_connectable($CONFIG_VAR['DB_ADDR'], $CONFIG_VAR['DB_PORT'], $CONFIG_VAR['DB_USER'], $CONFIG_VAR['DB_PWD'], $CONFIG_VAR['DB_DB']))
         {
             client_error("Could not connect to database");
@@ -89,7 +94,7 @@ if(isset($_POST['pwd']) && $CONFIG_VAR['ADMIN_PWD'] === $_POST['pwd'])
         }
         if(0 == strlen($CONFIG_VAR['MUSIC_DIR_ROOT']) || !is_dir($CONFIG_VAR['MUSIC_DIR_ROOT']) || '/' == $CONFIG_VAR['MUSIC_DIR_ROOT'][strlen($CONFIG_VAR['MUSIC_DIR_ROOT']) - 1])
         {
-            clien_error("Invalid MUSIC_DIR_ROOT");
+            client_error("Invalid MUSIC_DIR_ROOT");
             exit(0);
         }
         $CONFIG_VAR['setup_complete'] = "true";
@@ -99,9 +104,9 @@ if(isset($_POST['pwd']) && $CONFIG_VAR['ADMIN_PWD'] === $_POST['pwd'])
     {
         echo "<style type=\"text/css\">\nlabel {\nwidth: 150px;\n}\n</style>\n";
         echo "<form method=\"POST\" action=\"./\">\n";
-        echo "<input type=\"hidden\" name=\"pwd\" value=\"" . htmlspecialchars($_POST['pwd']) . "\"/>";
+        echo "<input type=\"hidden\" name=\"pwd\" value=\"" . str_replace("\"", "&quot;", $_POST['pwd']) . "\"/>";
         echo "<input type=\"hidden\" name=\"setup_configuration\" value=\"true\"/>";
-        echo "<label for=\"db_addr\">Database address:</label><input type=\"text\" id=\"db_addr\" name=\"db_addr\" size=\"25\"/><br/>\n";
+        echo "<label for=\"db_addr\">Database address:</label><input type=\"text\" id=\"db_addr\" name=\"db_addr\" size=\"25\" value=\"localhost\" /><br/>\n";
         echo "<label for=\"db_port\">Database port:</label><input type=\"text\" id=\"db_port\" name=\"db_port\" size=\"25\" value=\"3306\"/><br/>\n";
         echo "<label for=\"db_db\">Database database:</label><input type=\"text\" id=\"db_db\" name=\"db_db\" size=\"25\"/><br/>\n";
         echo "<label for=\"db_user\">Database user:</label><input type=\"text\" id=\"db_user\" name=\"db_user\" size=\"25\"/><br/>\n";
@@ -138,6 +143,15 @@ function ajax_process_authentication()
 </head>
 <body>
 <div id="main_wrapper">
+An admin password has been automatically created.<br/>
+Please enter the admin password, you can find it in file &quot;config.php&quot;.<br/>
+<?php
+if(!class_exists("mysqli"))
+{
+  echo "WARNIING: &quot;mysqli&quot; class not accessible. Have you loaded the mysql module? (it is required).<br/>";
+  echo "Try installing &quot;php-mysql&quot; package.<br/>";
+}
+?>
 <form method="POST" action="./" onsubmit="return ajax_setup_authentication();">
 <input type="text" name="user" size="10" value="juph_setup" />
 <input type="password" name="pwd" size="20" value="" />

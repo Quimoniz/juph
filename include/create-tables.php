@@ -17,7 +17,7 @@ $create_sql .= '`path_filename` VARCHAR(128) CHARACTER SET utf8 NOT NULL DEFAULT
 $create_sql .= '`last_scan` BIGINT NOT NULL,';
 $create_sql .= '`size` BIGINT NOT NULL,';
 $create_sql .= '`valid` ENUM(\'Y\',\'N\') NOT NULL DEFAULT \'Y\',';
-$create_sql .= '`count_played` BIGINT NOT NULL DEFAULT 0';
+$create_sql .= '`count_played` BIGINT NOT NULL DEFAULT 0,';
 $create_sql .= '`tagified` ENUM(\'Y\',\'N\') NOT NULL DEFAULT \'N\',';
 $create_sql .= '`length` INT NOT NULL DEFAULT 0,';
 $create_sql .= '`bitrate` INT NOT NULL DEFAULT 0,';
@@ -36,7 +36,7 @@ $create_sql .= 'CREATE TABLE IF NOT EXISTS `session_playlist` (';
 $create_sql .= '`session_id` CHAR(32) CHARACTER SET latin1 NOT NULL,';
 $create_sql .= '`fid` BIGINT NOT NULL,';
 $create_sql .= '`prank` BIGINT NOT NULL,';
-$create_sql .= '`options` VARCHAR(1024) CHARACTER SET utf8 NULL DEFAULT \'{}\'';
+$create_sql .= '`options` VARCHAR(1024) CHARACTER SET utf8 NULL DEFAULT \'{}\',';
 $create_sql .= 'KEY(`session_id`, `fid`, `prank`)';
 $create_sql .= ') ENGINE=InnoDB; ';
 // TABLE `playlists`
@@ -54,7 +54,7 @@ $create_sql .= 'CREATE TABLE IF NOT EXISTS `relation_playlists` (';
 $create_sql .= '`fid` BIGINT NULL,';
 $create_sql .= '`pid` BIGINT NOT NULL,';
 $create_sql .= '`prank` BIGINT NOT NULL,';
-$create_sql .= '`options` VARCHAR(1024) CHARACTER SET utf8 NULL DEFAULT \'{}\'';
+$create_sql .= '`options` VARCHAR(1024) CHARACTER SET utf8 NULL DEFAULT \'{}\',';
 $create_sql .= 'KEY(`fid`,`pid`,`prank`),';
 $create_sql .= 'FOREIGN KEY fk_pfile(`fid`) ';
 $create_sql .= 'REFERENCES `filecache`(`id`) ';
