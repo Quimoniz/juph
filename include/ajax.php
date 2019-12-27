@@ -253,7 +253,7 @@ if(isset($_GET['matching_tracks']))
     $target_id = (int) $_GET['request_track'];
     if(0 < $target_id && 9223372036854776000 > $target_id)
     {
-        $result_raw = @$dbcon->query('SELECT `path_str`, `valid` FROM `filecache` WHERE `id`=' . $target_id . ' AND `valid`=\'Y\'');
+        $result_raw = @$dbcon->query('SELECT `path_str`, `length`, `valid` FROM `filecache` WHERE `id`=' . $target_id . ' AND `valid`=\'Y\'');
         if(!(FALSE === $result_raw) && 0 < $result_raw->num_rows)
         {
             $result_row = $result_raw->fetch_assoc();
@@ -263,10 +263,17 @@ if(isset($_GET['matching_tracks']))
                 header('Content-Type: audio/mp3');
                 header('Content-Disposition: inline; filename="' . str_replace(array("\"", "\\"), array("\\\"", "\\\\"), basename($result_row['path_str'])) . '"');
                 header('Accept-Ranges: bytes');
+                $file_duration = (int) $result_row['length'];
+                if(0 != $file_duration)
+                {
+                    header('X-Content-Duration: ' . $file_duration);
+                    header('Content-Duration: ' . $file_duration);
+                }
                 $file_start = 0;
                 $file_end = -1;
                 $file_filesize = filesize($result_path);
                 $CHUNK_SIZE = 2000000;
+                $MAX_FILE_TRANSFER = 20000000;
                 if(isset($_SERVER['HTTP_RANGE']))
                 {
                     preg_match('/bytes=([0-9]+)-([0-9]+)?/', $_SERVER['HTTP_RANGE'], $byte_matches);
@@ -278,6 +285,22 @@ if(isset($_GET['matching_tracks']))
                             $file_end = (int) $byte_matches[2];
                         }
                     }
+                }
+                if(0 != $file_start)
+                {
+                    if(-1 == $file_end)
+                    {
+                        if(($file_filesize - $file_start) > $MAX_FILE_TRANSFER)
+                        {
+                            $file_end = $file_start + $MAX_FILE_TRANSFER;
+                        }
+                    } else if(($file_end - $file_start) > $MAX_FILE_TRANSFER)
+                    {
+                        $file_end = $file_start + $MAX_FILE_TRANSFER;
+                    }
+                } else if($file_filesize > $MAX_FILE_TRANSFER)
+                {
+                    $file_end = $MAX_FILE_TRANSFER;
                 }
                 
                 if(0 == $file_start)
@@ -302,6 +325,7 @@ if(isset($_GET['matching_tracks']))
                         }
                         header('HTTP/1.1 206 Partial Content');
                         header('Content-Range: bytes ' . $file_start . '-' . ($file_end - 1) . '/' . $file_filesize);
+                        header('Content-Length: ' . ($file_end - $file_start + 1));
                         echo fread($file_handle, $file_end - $file_start);
                         fclose($file_handle);
                     } else
