@@ -11,6 +11,7 @@ While it relies heavily on Javascript (Frontend), PHP (Backend) and MySQL (Cachi
 - Listen to Online Radio Streams
 - Keeping track of `Tags` for each song[^1]
 - Edit MP3-Meta-Tags (using the `getid3` php library)[^2]
+- Look at images of dancing pigs <img src="https://raw.githubusercontent.com/Quimoniz/juph/master/img/country.png" width="40" height="47">
 
 [^1]: multiple thousands of tags have little performance impact due some sophisticated MySQL query optimization (i.e. through carefull picking of indices and favoring subselects instead of SQL-joining in certain places).
 
